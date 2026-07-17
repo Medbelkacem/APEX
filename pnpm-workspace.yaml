@@ -1,0 +1,12 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Build-script allow-list. The embedded-postgres platform binary needs its
+# postinstall to become runnable. The others are optional accelerators that
+# fall back to pure JS, so they stay disabled.
+allowBuilds:
+  "@embedded-postgres/linux-x64": true
+  "@nestjs/core": false
+  msgpackr-extract: false
+  unrs-resolver: false

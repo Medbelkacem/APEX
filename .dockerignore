@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+.git
+.github
+**/*.log
+storage/cases/*
+storage/invoices/*
+storage/statements/*
+.env
+.env.*
+!.env.example
+docker/data
+docs

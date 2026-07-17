@@ -1,0 +1,31 @@
+{
+  "name": "dental-lab-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dental Laboratory Management Platform — marketing site, dentist portal, admin dashboard (monorepo).",
+  "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:migrate": "pnpm --filter @dental/api migration:run",
+    "db:seed": "pnpm --filter @dental/api seed",
+    "db:local": "node scripts/local-db.mjs",
+    "start:local": "node scripts/start-local.mjs",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "embedded-postgres": "18.4.0-beta.17",
+    "prettier": "^3.3.3",
+    "turbo": "^2.1.3",
+    "typescript": "^5.6.2"
+  }
+}

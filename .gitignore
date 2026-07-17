@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Local file storage volume (case files, generated PDFs) — never commit
+storage/cases/*
+storage/invoices/*
+storage/statements/*
+!storage/cases/.gitkeep
+!storage/invoices/.gitkeep
+!storage/statements/.gitkeep
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Docker volume data
+docker/data/
+
+# Local userspace dev data (embedded Postgres)
+.local/
