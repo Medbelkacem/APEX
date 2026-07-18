@@ -7,7 +7,22 @@ export const metadata: Metadata = {
   description: 'Get in touch with our dental laboratory — address, phone, email, and contact form.',
 };
 
+/**
+ * Real contact details are configuration, not code — the laboratory sets them in
+ * the environment. A row with no configured value is omitted entirely rather
+ * than rendered with a stand-in, so the page can never publish an address or
+ * phone number that nobody can actually reach.
+ */
+const DETAILS: Array<[label: string, value: string | undefined]> = [
+  ['Address', process.env.LAB_ADDRESS],
+  ['Phone', process.env.LAB_PHONE],
+  ['Email', process.env.LAB_EMAIL],
+  ['Hours', process.env.LAB_HOURS],
+];
+
 export default function ContactPage() {
+  const details = DETAILS.filter(([, value]) => Boolean(value?.trim()));
+
   return (
     <Container className="py-16">
       <div className="grid gap-12 lg:grid-cols-[1fr_1.3fr]">
@@ -18,24 +33,16 @@ export default function ContactPage() {
             will respond promptly.
           </p>
 
-          <dl className="mt-10 space-y-6 text-sm">
-            <div>
-              <dt className="font-semibold text-slate-900">Address</dt>
-              <dd className="mt-1 text-slate-600">123 Laboratory Way, Suite 200, Your City</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-900">Phone</dt>
-              <dd className="mt-1 text-slate-600">+1 (555) 010-2030</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-900">Email</dt>
-              <dd className="mt-1 text-slate-600">hello@dental-lab.test</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-900">Hours</dt>
-              <dd className="mt-1 text-slate-600">Mon–Fri, 8:00–18:00</dd>
-            </div>
-          </dl>
+          {details.length > 0 && (
+            <dl className="mt-10 space-y-6 text-sm">
+              {details.map(([label, value]) => (
+                <div key={label}>
+                  <dt className="font-semibold text-slate-900">{label}</dt>
+                  <dd className="mt-1 text-slate-600">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
 
         <Card>

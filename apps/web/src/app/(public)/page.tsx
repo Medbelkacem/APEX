@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { Container, Card } from '@/components/ui/card';
 import { buttonClasses } from '@/components/ui/button';
+import { loadPublicCaseTypes } from '@/lib/api/public-catalog';
+
+/** Must be a literal — Next.js analyses segment config statically. */
+export const revalidate = 3600;
 
 const VALUE_PROPS = [
   {
@@ -17,15 +21,16 @@ const VALUE_PROPS = [
   },
 ];
 
-const SERVICES = ['Crowns', 'Bridges', 'Implants', 'Veneers', 'Dentures', 'Aligners'];
+export default async function HomePage() {
+  /** Same admin-managed catalog the Services page reads — never a static list. */
+  const caseTypes = await loadPublicCaseTypes();
 
-export default function HomePage() {
   return (
     <>
       {/* Hero */}
       <section className="bg-gradient-to-b from-brand-50 to-white">
-        <Container className="grid gap-10 py-20 lg:grid-cols-2 lg:items-center lg:py-28">
-          <div>
+        <Container className="py-20 lg:py-28">
+          <div className="max-w-2xl">
             <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-800">
               For dental practices
             </span>
@@ -45,24 +50,6 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-          <Card className="border-brand-100 bg-white/70 p-8">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-brand-700">
-              Turnaround at a glance
-            </h2>
-            <dl className="mt-6 grid grid-cols-2 gap-6">
-              {[
-                ['48h', 'Average crown turnaround'],
-                ['99.5%', 'On-time delivery'],
-                ['100MB', 'Max STL upload per file'],
-                ['24/7', 'Case status visibility'],
-              ].map(([stat, label]) => (
-                <div key={label}>
-                  <dt className="text-3xl font-bold text-slate-900">{stat}</dt>
-                  <dd className="mt-1 text-sm text-slate-500">{label}</dd>
-                </div>
-              ))}
-            </dl>
-          </Card>
         </Container>
       </section>
 
@@ -90,19 +77,18 @@ export default function HomePage() {
       <section className="bg-slate-900 py-20 text-white">
         <Container className="text-center">
           <h2 className="text-3xl font-bold">Case types we handle</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-slate-300">
-            From single-unit crowns to full-arch restorations and clear aligners.
-          </p>
-          <div className="mx-auto mt-10 flex max-w-3xl flex-wrap justify-center gap-3">
-            {SERVICES.map((s) => (
-              <span
-                key={s}
-                className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm"
-              >
-                {s}
-              </span>
-            ))}
-          </div>
+          {caseTypes.length > 0 && (
+            <div className="mx-auto mt-10 flex max-w-3xl flex-wrap justify-center gap-3">
+              {caseTypes.map((type) => (
+                <span
+                  key={type.id}
+                  className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm"
+                >
+                  {type.name}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="mt-10">
             <Link href="/services" className={buttonClasses('primary', 'lg')}>
               Explore services

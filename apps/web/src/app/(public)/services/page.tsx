@@ -2,40 +2,19 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Container, Card } from '@/components/ui/card';
 import { buttonClasses } from '@/components/ui/button';
+import { loadPublicCaseTypes } from '@/lib/api/public-catalog';
 
 export const metadata: Metadata = {
   title: 'Services',
-  description: 'Dental case types we offer: crowns, bridges, implants, veneers, dentures, aligners.',
+  description: 'The dental case types our laboratory accepts through the portal.',
 };
 
-const SERVICES = [
-  {
-    name: 'Crowns',
-    description: 'Single-unit ceramic and zirconia crowns with natural aesthetics and precise fit.',
-  },
-  {
-    name: 'Bridges',
-    description: 'Multi-unit fixed bridges engineered for strength and long-term durability.',
-  },
-  {
-    name: 'Implants',
-    description: 'Implant-supported crowns, bridges, and custom abutments from major systems.',
-  },
-  {
-    name: 'Veneers',
-    description: 'Thin porcelain and composite veneers designed for a bright, natural smile.',
-  },
-  {
-    name: 'Dentures',
-    description: 'Full and partial removable dentures with a comfortable, accurate base.',
-  },
-  {
-    name: 'Aligners',
-    description: 'Clear orthodontic aligners produced from your digital impressions.',
-  },
-];
+/** Must be a literal — Next.js analyses segment config statically. */
+export const revalidate = 3600;
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const services = await loadPublicCaseTypes();
+
   return (
     <Container className="py-16">
       <div className="mx-auto max-w-2xl text-center">
@@ -46,14 +25,16 @@ export default function ServicesPage() {
         </p>
       </div>
 
-      <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {SERVICES.map((s) => (
-          <Card key={s.name}>
-            <h2 className="text-lg font-semibold text-slate-900">{s.name}</h2>
-            <p className="mt-2 text-sm text-slate-600">{s.description}</p>
-          </Card>
-        ))}
-      </div>
+      {services.length > 0 && (
+        <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {services.map((s) => (
+            <Card key={s.name}>
+              <h2 className="text-lg font-semibold text-slate-900">{s.name}</h2>
+              {s.description && <p className="mt-2 text-sm text-slate-600">{s.description}</p>}
+            </Card>
+          ))}
+        </div>
+      )}
 
       <div className="mt-14 text-center">
         <Link href="/contact" className={buttonClasses('primary', 'lg')}>

@@ -11,7 +11,7 @@ export const appConfig = registerAs('app', () => ({
     .filter(Boolean),
   logLevel: process.env.LOG_LEVEL ?? 'info',
   sentryDsn: process.env.SENTRY_DSN || undefined,
-  defaultCurrency: process.env.DEFAULT_CURRENCY ?? 'USD',
+  defaultCurrency: process.env.DEFAULT_CURRENCY ?? 'DZD',
   defaultTimezone: process.env.DEFAULT_TIMEZONE ?? 'UTC',
 }));
 
