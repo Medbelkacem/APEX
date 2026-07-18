@@ -44,6 +44,9 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
+# LibreOffice/Word lock files, created while the DRS in the repo root is open
+.~lock.*#
+
 # Docker volume data
 docker/data/
 
