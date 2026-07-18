@@ -90,14 +90,50 @@ docker/   Dockerfiles
 docs/     ERD + operational docs
 ```
 
+## Feature map
+
+| Area | Endpoints | UI |
+| --- | --- | --- |
+| Auth & accounts | `/auth/*`, `/users/*` | login, forgot/reset, first-login setup, profile |
+| Marketing site | `/contact`, `/catalog/case-types` (public) | home, about, services, contact, how-to-send-a-case |
+| Cases | `/cases/*` incl. multipart upload + streamed download | submission wizard, list + filters, detail with timeline |
+| Workflow & catalog | `/catalog/case-statuses/*` | admin workflow editor with reordering |
+| Pricing | `/pricing/*`, `/pricing/quote` | admin pricing rules + quote preview |
+| Invoicing | `/invoices/*`, Stripe `/payments/webhook` | dentist pay-online, admin issue/mark-paid/refund |
+| Statements | `/statements/*` | monthly list + PDF, admin generate/send |
+| Notifications | `/notifications/*`, `/admin/notifications/*` | bell feed, admin broadcast + delivery log |
+| Reporting | `/statistics/*` incl. CSV export | admin dashboard charts + reports |
+| Platform | `/settings`, `/audit-logs` | super-admin settings and audit trail |
+
+**File uploads** are validated server-side by magic-byte sniffing (not the
+browser's `Content-Type`): `.stl` (binary + ASCII), `.png`, `.jpg/.jpeg`, `.pdf`,
+each with its own size cap. Downloads stream through an authenticated endpoint
+that verifies case ownership.
+
+**Money** crosses the wire as decimal strings and is computed in integer cents,
+so totals never drift through binary floating point.
+
+## Branding
+
+The brand mark lives in `docs/brand/logo-source.jpg`. Derived assets
+(`apps/web/public/logo.png`, `logo-white.png`, `apps/web/src/app/icon.png`,
+`apps/api/assets/logo.png`) are transparent PNGs generated from it. In the web UI
+the mark is applied as a CSS mask over `currentColor`, so one asset adapts to
+every surface; emails and PDFs embed the PNG directly.
+
+Workflow-status colours are a **validated categorical palette** — every adjacent
+pair clears the colour-blind and normal-vision separation floors on a light
+surface. Re-validate before changing them; statuses always render with their
+label so identity never rests on colour alone.
+
 ## Development milestones
 
 The build follows the DRS milestone plan:
 
-1. **Week 1 — Foundation:** scaffolding, auth, RBAC, marketing site. _(current)_
-2. **Week 2 — Dentist portal:** case submission, file upload, tracking, dashboard.
-3. **Week 3 — Admin dashboard & workflow:** dentist/case/pricing/workflow management, stats.
-4. **Week 4 — Invoicing, statements, integrations & hardening.**
+1. **Week 1 — Foundation:** scaffolding, auth, RBAC, marketing site. _(done)_
+2. **Week 2 — Dentist portal:** case submission, file upload, tracking, dashboard. _(done)_
+3. **Week 3 — Admin dashboard & workflow:** dentist/case/pricing/workflow management, stats. _(done)_
+4. **Week 4 — Invoicing, statements, integrations & hardening.** _(done)_
 5. **Week 5 (optional) — Polish, performance, launch.**
 
 See `docs/` and the deliverables checklist in the DRS.

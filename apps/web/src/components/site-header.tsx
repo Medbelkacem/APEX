@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/ui/card';
+import { Logo } from '@/components/ui/logo';
 import { buttonClasses } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 
@@ -19,9 +20,8 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <Container className="flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-bold text-brand-700">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-700 text-white">D</span>
-          Dental Lab
+        <Link href="/" className="text-brand-700" aria-label="Dental Lab — home">
+          <Logo />
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex" aria-label="Primary">

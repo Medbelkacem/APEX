@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Container } from '@/components/ui/card';
+import { Logo } from '@/components/ui/logo';
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
@@ -7,12 +8,7 @@ export function SiteFooter() {
     <footer className="border-t border-slate-200 bg-white">
       <Container className="grid gap-8 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2 font-bold text-brand-700">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-700 text-white">
-              D
-            </span>
-            Dental Lab
-          </div>
+          <Logo className="text-brand-700" />
           <p className="mt-3 max-w-xs text-sm text-slate-500">
             Precision dental restorations with a fully digital case workflow.
           </p>
