@@ -76,6 +76,19 @@ export interface CaseFile extends BaseModel {
   uploadedByUserId: string;
 }
 
+export interface PricingRule extends BaseModel {
+  caseTypeId: string;
+  /** null = applies to every dentist tier. */
+  dentistTier: string | null;
+  /** null = applies to every material. */
+  material: string | null;
+  price: string;
+  currency: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+}
+
 export interface Invoice extends BaseModel {
   number: string;
   dentistId: string;
