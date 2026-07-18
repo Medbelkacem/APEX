@@ -82,7 +82,7 @@ export const envSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().optional().default(''),
 
   // Platform defaults
-  DEFAULT_CURRENCY: z.string().length(3).default('DZD'),
+  DEFAULT_CURRENCY: z.string().length(3).default('USD'),
   DEFAULT_TIMEZONE: z.string().default('UTC'),
 });
 

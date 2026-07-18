@@ -27,7 +27,7 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 }
 
 /** Money values cross the wire as decimal strings to avoid float drift. */
-export function formatMoney(amount: string | number | null | undefined, currency = 'DZD'): string {
+export function formatMoney(amount: string | number | null | undefined, currency = 'USD'): string {
   const value = typeof amount === 'string' ? Number(amount) : (amount ?? 0);
   if (!Number.isFinite(value)) return '—';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value);

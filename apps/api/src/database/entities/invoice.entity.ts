@@ -43,7 +43,7 @@ export class Invoice extends SoftDeleteEntity {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   total: string;
 
-  @Column({ type: 'varchar', length: 3, default: 'DZD' })
+  @Column({ type: 'varchar', length: 3, default: 'USD' })
   currency: string;
 
   @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.DRAFT })

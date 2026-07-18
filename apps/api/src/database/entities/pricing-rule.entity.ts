@@ -23,7 +23,7 @@ export class PricingRule extends SoftDeleteEntity {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: string;
 
-  @Column({ type: 'varchar', length: 3, default: 'DZD' })
+  @Column({ type: 'varchar', length: 3, default: 'USD' })
   currency: string;
 
   @Column({ type: 'date', default: () => 'CURRENT_DATE' })

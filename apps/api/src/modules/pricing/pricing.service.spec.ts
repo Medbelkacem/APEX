@@ -12,7 +12,7 @@ function rule(partial: Partial<PricingRule>): PricingRule {
     dentistTier: null,
     material: null,
     price: '100.00',
-    currency: 'DZD',
+    currency: 'USD',
     effectiveFrom: '2026-01-01',
     effectiveTo: null,
     isActive: true,
@@ -33,14 +33,14 @@ function serviceWith(rules: PricingRule[]): PricingService {
     getMany: jest.fn().mockResolvedValue(rules),
   };
   const repo = { createQueryBuilder: jest.fn().mockReturnValue(qb) } as unknown as Repository<PricingRule>;
-  const config = { get: () => ({ defaultCurrency: 'DZD' }) } as unknown as ConfigService;
+  const config = { get: () => ({ defaultCurrency: 'USD' }) } as unknown as ConfigService;
   return new PricingService(repo, config);
 }
 
 describe('PricingService.quote', () => {
   it('falls back to zero with basis "none" when nothing is configured', async () => {
     const quote = await serviceWith([]).quote(CASE_TYPE);
-    expect(quote).toEqual({ price: '0.00', currency: 'DZD', ruleId: null, basis: 'none' });
+    expect(quote).toEqual({ price: '0.00', currency: 'USD', ruleId: null, basis: 'none' });
   });
 
   it('uses the case type default when no tier or material matches', async () => {
