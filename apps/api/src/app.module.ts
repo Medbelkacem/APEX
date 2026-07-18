@@ -17,6 +17,7 @@ import { AuthConfig } from './config/auth.config';
 import { QueueModule } from './queue/queue.module';
 import { MailModule } from './mail/mail.module';
 import { StorageModule } from './storage/storage.module';
+import { DocumentsModule } from './documents/documents.module';
 
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -26,7 +27,10 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { CasesModule } from './modules/cases/cases.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PricingModule } from './modules/pricing/pricing.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
+import { StatementsModule } from './modules/statements/statements.module';
 import { StatisticsModule } from './modules/statistics/statistics.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { ContactModule } from './modules/contact/contact.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -91,7 +95,9 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     QueueModule.register(),
     MailModule,
     StorageModule,
+    DocumentsModule,
     AuditModule,
+    SettingsModule,
 
     // Feature modules
     AuthModule,
@@ -101,6 +107,8 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     CasesModule,
     NotificationsModule,
     PricingModule,
+    InvoicesModule,
+    StatementsModule,
     StatisticsModule,
     ContactModule,
     HealthModule,

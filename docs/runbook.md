@@ -63,6 +63,32 @@ rotating `JWT_SECRET` invalidates all active sessions.
 - Alert on: elevated error rate, failed background jobs (dead-letter queue),
   expiring SSL certificates, and low disk space on the storage volume.
 
+## Stripe
+
+Keys are read from Platform Settings first, falling back to environment config,
+so a super admin can rotate them without a redeploy (Settings → `stripe.*`).
+
+Point a Stripe webhook endpoint at `POST /api/payments/webhook` subscribing to
+`payment_intent.succeeded`, `payment_intent.payment_failed`, and
+`charge.refunded`. The route is unauthenticated by necessity and is instead
+verified by the payload signature against the **raw** request body — never add a
+body-parsing middleware in front of it. Locally:
+
+```bash
+stripe listen --forward-to localhost:4000/api/payments/webhook
+```
+
+The webhook is the source of truth for settlement; the browser confirming a
+payment only updates the UI. `markPaid` is idempotent, so redelivered events are
+safe.
+
+## Monthly statements
+
+A scheduled job runs at 00:00 on the 1st of each month and generates statements
+for the month that just closed, for every active dentist. It is safe to re-run:
+statements are keyed on dentist + period and are updated in place, so a late
+invoice can be reflected by regenerating from the admin Statements page.
+
 ## Background jobs
 
 Email (and later PDF/statement) jobs run on BullMQ/Redis with exponential-backoff
