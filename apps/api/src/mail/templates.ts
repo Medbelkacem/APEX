@@ -12,6 +12,13 @@ export interface RenderedEmail {
 
 const BRAND = 'Dental Lab';
 
+/**
+ * Absolute URL for the logo — email clients cannot resolve relative paths, and
+ * CSS masking is unsupported, so the white-on-transparent variant is used
+ * directly against the brand-coloured header band.
+ */
+const LOGO_URL = `${process.env.WEB_URL ?? 'http://localhost:3000'}/logo-white.png`;
+
 function layout(title: string, bodyHtml: string): string {
   return `<!doctype html>
 <html>
@@ -19,7 +26,10 @@ function layout(title: string, bodyHtml: string): string {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 0;">
       <tr><td align="center">
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
-          <tr><td style="background:#0f766e;padding:20px 28px;color:#ffffff;font-size:18px;font-weight:700;">${BRAND}</td></tr>
+          <tr><td style="background:#0f766e;padding:20px 28px;color:#ffffff;font-size:18px;font-weight:700;">
+            <img src="${LOGO_URL}" width="28" height="28" alt="" style="vertical-align:middle;margin-right:10px;" />
+            <span style="vertical-align:middle;">${BRAND}</span>
+          </td></tr>
           <tr><td style="padding:28px;">
             <h1 style="margin:0 0 16px;font-size:20px;">${title}</h1>
             ${bodyHtml}
@@ -32,6 +42,16 @@ function layout(title: string, bodyHtml: string): string {
     </table>
   </body>
 </html>`;
+}
+
+/** Escape untrusted text before interpolating it into an HTML email body. */
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function button(label: string, url: string): string {
@@ -70,7 +90,9 @@ export const emailTemplates = {
       subject: `New case submitted — ${params.reference}`,
       html: layout(
         `New case ${params.reference}`,
-        `<p>${params.dentistName} submitted a new <strong>${params.caseType}</strong> case.</p>
+        `<p>${escapeHtml(params.dentistName)} submitted a new <strong>${escapeHtml(
+          params.caseType,
+        )}</strong> case.</p>
          <p>Reference: <strong>${params.reference}</strong></p>`,
       ),
       text: `New case ${params.reference} (${params.caseType}) submitted by ${params.dentistName}.`,
@@ -89,13 +111,73 @@ export const emailTemplates = {
     };
   },
 
+  invoiceIssued(params: {
+    number: string;
+    total: string;
+    currency: string;
+    dueDate: string | null;
+    invoiceUrl: string;
+  }): RenderedEmail {
+    const due = params.dueDate ? ` It is due on ${params.dueDate}.` : '';
+    return {
+      subject: `Invoice ${params.number} — ${params.currency} ${params.total}`,
+      html: layout(
+        `Invoice ${params.number}`,
+        `<p>A new invoice for <strong>${params.currency} ${params.total}</strong> has been issued to your account.${due}</p>
+         <p style="margin:24px 0;">${button('View and pay invoice', params.invoiceUrl)}</p>`,
+      ),
+      text: `Invoice ${params.number} for ${params.currency} ${params.total}.${due} View: ${params.invoiceUrl}`,
+    };
+  },
+
+  paymentReceived(params: {
+    number: string;
+    total: string;
+    currency: string;
+    invoiceUrl: string;
+  }): RenderedEmail {
+    return {
+      subject: `Payment received — invoice ${params.number}`,
+      html: layout(
+        'Thank you — payment received',
+        `<p>We've received your payment of <strong>${params.currency} ${params.total}</strong> for invoice ${params.number}.</p>
+         <p style="margin:24px 0;">${button('View receipt', params.invoiceUrl)}</p>`,
+      ),
+      text: `Payment of ${params.currency} ${params.total} received for invoice ${params.number}. ${params.invoiceUrl}`,
+    };
+  },
+
+  statementReady(params: { period: string; total: string; currency: string; url: string }): RenderedEmail {
+    return {
+      subject: `Your ${params.period} statement is ready`,
+      html: layout(
+        `Statement — ${params.period}`,
+        `<p>Your monthly statement for <strong>${params.period}</strong> is ready. Total invoiced: <strong>${params.currency} ${params.total}</strong>.</p>
+         <p style="margin:24px 0;">${button('Download statement', params.url)}</p>`,
+      ),
+      text: `Your ${params.period} statement is ready (${params.currency} ${params.total}). Download: ${params.url}`,
+    };
+  },
+
+  adminBroadcast(params: { subject: string; message: string }): RenderedEmail {
+    // Author-supplied text: escape it so a stray < or & cannot break the markup.
+    const safe = escapeHtml(params.message).replace(/\n/g, '<br />');
+    return {
+      subject: params.subject,
+      html: layout(params.subject, `<p>${safe}</p>`),
+      text: params.message,
+    };
+  },
+
   contactReceived(params: { name: string; email: string; subject: string; message: string }): RenderedEmail {
     return {
       subject: `Contact form: ${params.subject}`,
       html: layout(
         'New contact message',
-        `<p><strong>${params.name}</strong> (${params.email}) wrote:</p>
-         <blockquote style="border-left:3px solid #0f766e;padding-left:12px;color:#334155;">${params.message}</blockquote>`,
+        `<p><strong>${escapeHtml(params.name)}</strong> (${escapeHtml(params.email)}) wrote:</p>
+         <blockquote style="border-left:3px solid #0f766e;padding-left:12px;color:#334155;">${escapeHtml(
+           params.message,
+         ).replace(/\n/g, '<br />')}</blockquote>`,
       ),
       text: `Contact from ${params.name} <${params.email}>: ${params.message}`,
     };

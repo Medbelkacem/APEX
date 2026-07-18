@@ -22,6 +22,10 @@ export const authApi = {
     api.post<{ success: boolean }>('/auth/reset-password', input),
   setupPassword: (input: { userId: string; token: string; password: string }) =>
     api.post<{ success: boolean }>('/auth/setup-password', input),
+  updateProfile: (input: { firstName?: string; lastName?: string; phone?: string | null }) =>
+    api.patch<PublicUserResponse>('/auth/me', input),
+  changePassword: (input: { currentPassword: string; newPassword: string }) =>
+    api.post<{ success: boolean }>('/auth/change-password', input),
 };
 
 export const contactApi = {

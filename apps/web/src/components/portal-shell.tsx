@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { LogoMark } from '@/components/ui/logo';
+import { NotificationBell } from '@/components/notification-bell';
 import { authApi } from '@/lib/api/auth';
 import { cn } from '@/lib/utils/cn';
 
@@ -32,10 +34,8 @@ export function PortalShell({
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-        <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-6 font-bold text-brand-700">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-700 text-white">
-            D
-          </span>
+        <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-6 font-bold text-brand-700">
+          <LogoMark className="h-8 w-8" />
           {title}
         </div>
         <nav className="flex-1 space-y-1 p-4" aria-label="Portal">
@@ -60,7 +60,8 @@ export function PortalShell({
       <div className="flex flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
           <div className="lg:hidden font-bold text-brand-700">{title}</div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <NotificationBell />
             <Button variant="outline" size="sm" onClick={logout}>
               Log out
             </Button>

@@ -22,6 +22,9 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { DentistsModule } from './modules/dentists/dentists.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
+import { CasesModule } from './modules/cases/cases.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ContactModule } from './modules/contact/contact.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -88,10 +91,13 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     StorageModule,
     AuditModule,
 
-    // Feature modules (Week 1)
+    // Feature modules
     AuthModule,
     UsersModule,
     DentistsModule,
+    CatalogModule,
+    CasesModule,
+    NotificationsModule,
     ContactModule,
     HealthModule,
   ],

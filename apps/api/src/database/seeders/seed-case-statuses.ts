@@ -1,24 +1,46 @@
 import { DataSource } from 'typeorm';
 import { CaseStatus } from '../entities';
 
-/** Default lab workflow statuses, in order. Idempotent by slug. */
-const DEFAULTS: Array<Partial<CaseStatus>> = [
-  { label: 'Received', slug: 'received', color: '#64748b', sortOrder: 1, isTerminal: false },
-  { label: 'In Review', slug: 'in-review', color: '#0ea5e9', sortOrder: 2, isTerminal: false },
-  { label: 'In Production', slug: 'in-production', color: '#6366f1', sortOrder: 3, isTerminal: false },
-  { label: 'Quality Check', slug: 'quality-check', color: '#f59e0b', sortOrder: 4, isTerminal: false },
-  { label: 'Shipped', slug: 'shipped', color: '#14b8a6', sortOrder: 5, isTerminal: false },
-  { label: 'Completed', slug: 'completed', color: '#22c55e', sortOrder: 6, isTerminal: true },
-  { label: 'Cancelled', slug: 'cancelled', color: '#ef4444', sortOrder: 7, isTerminal: true },
+/**
+ * Default lab workflow statuses, in order.
+ *
+ * The colours are not decorative: they drive status badges and the admin
+ * distribution chart, so they were chosen as a *validated categorical palette* —
+ * every adjacent pair clears the colour-blind and normal-vision separation
+ * floors against a light surface. Statuses are always rendered with their label
+ * beside the swatch, which is the secondary encoding the red/green pair needs.
+ * Re-validate with the data-viz palette checker before changing any value.
+ */
+const DEFAULTS: Array<Partial<CaseStatus> & { legacyColor?: string }> = [
+  { label: 'Received', slug: 'received', color: '#2a78d6', sortOrder: 1, isTerminal: false, legacyColor: '#64748b' },
+  { label: 'In Review', slug: 'in-review', color: '#eda100', sortOrder: 2, isTerminal: false, legacyColor: '#0ea5e9' },
+  { label: 'In Production', slug: 'in-production', color: '#4a3aa7', sortOrder: 3, isTerminal: false, legacyColor: '#6366f1' },
+  { label: 'Quality Check', slug: 'quality-check', color: '#eb6834', sortOrder: 4, isTerminal: false, legacyColor: '#f59e0b' },
+  { label: 'Shipped', slug: 'shipped', color: '#1baf7a', sortOrder: 5, isTerminal: false, legacyColor: '#14b8a6' },
+  { label: 'Completed', slug: 'completed', color: '#008300', sortOrder: 6, isTerminal: true, legacyColor: '#22c55e' },
+  { label: 'Cancelled', slug: 'cancelled', color: '#e34948', sortOrder: 7, isTerminal: true, legacyColor: '#ef4444' },
 ];
 
 export async function seedCaseStatuses(ds: DataSource): Promise<void> {
   const repo = ds.getRepository(CaseStatus);
-  for (const data of DEFAULTS) {
+  let recoloured = 0;
+
+  for (const { legacyColor, ...data } of DEFAULTS) {
     const existing = await repo.findOne({ where: { slug: data.slug } });
-    if (existing) continue;
-    await repo.save(repo.create({ ...data, isActive: true }));
+    if (!existing) {
+      await repo.save(repo.create({ ...data, isActive: true }));
+      continue;
+    }
+    // Upgrade installs still on the old palette, but never overwrite a colour
+    // an admin has deliberately customised.
+    if (legacyColor && existing.color === legacyColor) {
+      await repo.update(existing.id, { color: data.color });
+      recoloured += 1;
+    }
   }
+
   // eslint-disable-next-line no-console
-  console.log(`  ✓ case statuses seeded (${DEFAULTS.length})`);
+  console.log(
+    `  ✓ case statuses seeded (${DEFAULTS.length})${recoloured ? `, ${recoloured} recoloured` : ''}`,
+  );
 }
