@@ -362,6 +362,12 @@ export class InvoicesService {
     if (invoice.status === InvoiceStatus.CANCELLED) {
       throw new BadRequestException('A cancelled invoice cannot be marked paid');
     }
+    // A refund is the end of the line. Without this, Stripe redelivering the
+    // original `payment_intent.succeeded` — which it does for days — would turn
+    // a refunded invoice back into a paid one.
+    if (invoice.status === InvoiceStatus.REFUNDED) {
+      throw new BadRequestException('A refunded invoice cannot be marked paid');
+    }
 
     await this.invoices.update(id, {
       status: InvoiceStatus.PAID,
@@ -403,13 +409,43 @@ export class InvoicesService {
     return this.findByIdOrFail(id);
   }
 
+  /**
+   * Record a refund that has already happened at the payment provider — the
+   * `charge.refunded` webhook path. Stripe redelivers that event, so arriving
+   * at an already-refunded invoice is success, not an error.
+   */
   async markRefunded(id: string): Promise<Invoice> {
     const invoice = await this.findByIdOrFail(id);
+    if (invoice.status === InvoiceStatus.REFUNDED) return invoice;
     if (invoice.status !== InvoiceStatus.PAID) {
       throw new BadRequestException('Only a paid invoice can be refunded');
     }
     await this.invoices.update(id, { status: InvoiceStatus.REFUNDED });
     return this.findByIdOrFail(id);
+  }
+
+  /**
+   * Take exclusive ownership of the PAID → REFUNDED transition.
+   *
+   * The condition lives in the UPDATE rather than in a preceding SELECT because
+   * a read-then-write pair lets two concurrent refunds both observe PAID and
+   * both go on to charge Stripe. Here the database decides: exactly one caller
+   * sees `affected === 1`, and only that caller may issue the refund.
+   */
+  async claimRefund(id: string): Promise<boolean> {
+    const result = await this.invoices.update(
+      { id, status: InvoiceStatus.PAID },
+      { status: InvoiceStatus.REFUNDED },
+    );
+    return result.affected === 1;
+  }
+
+  /** Hand the claim back when the refund could not be completed after all. */
+  async releaseRefundClaim(id: string): Promise<void> {
+    await this.invoices.update(
+      { id, status: InvoiceStatus.REFUNDED },
+      { status: InvoiceStatus.PAID },
+    );
   }
 
   async findByPaymentIntent(paymentIntentId: string): Promise<Invoice | null> {

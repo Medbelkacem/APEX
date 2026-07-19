@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { AuthenticatedUser, InvoiceStatus } from '@dental/shared-types';
+import { Invoice } from '../../database/entities';
 import { InvoicesService } from '../invoices/invoices.service';
 import { SettingsService } from '../settings/settings.service';
 
@@ -169,22 +170,94 @@ export class PaymentsService {
       this.logger.error(`Stripe intent ${intent.id} succeeded but no invoice matched it`);
       return;
     }
-    // markPaid is idempotent, so a redelivered webhook is harmless.
+
+    // A closed invoice stays closed. Stripe redelivers `succeeded` for days, so
+    // the event that originally settled this invoice can arrive again *after* a
+    // refund — applying it would quietly reverse the refund. Returning (rather
+    // than throwing) keeps the response 200, because a retry cannot help.
+    if (invoice.status === InvoiceStatus.REFUNDED || invoice.status === InvoiceStatus.CANCELLED) {
+      this.logger.warn(
+        `Ignoring succeeded intent ${intent.id}: invoice ${invoice.number} is ${invoice.status}`,
+      );
+      return;
+    }
+
+    if (!this.collectedInFull(intent, invoice)) return;
+
     await this.invoices.markPaid(invoice.id, { stripePaymentIntentId: intent.id });
     this.logger.log(`Invoice ${invoice.number} settled via Stripe intent ${intent.id}`);
+  }
+
+  /**
+   * Whether a succeeded intent actually collected what the invoice asks for.
+   *
+   * The signature on the webhook proves the event genuinely came from Stripe —
+   * not that it pays *this* invoice. `metadata.invoiceId` is set by whoever
+   * created the intent, so on its own it would let a one-cent intent close a
+   * $100 invoice. The amount is the part that has to be checked against Stripe's
+   * own numbers.
+   */
+  private collectedInFull(intent: Stripe.PaymentIntent, invoice: Invoice): boolean {
+    const expectedMinorUnits = Math.round(Number(invoice.total) * 100);
+    const received = intent.amount_received;
+
+    // Absent is treated as unverified, not as zero: a settlement this service
+    // cannot check is one it must not apply.
+    if (typeof received !== 'number' || received < expectedMinorUnits) {
+      this.logger.error(
+        `Refusing to settle invoice ${invoice.number}: intent ${intent.id} collected ` +
+          `${received ?? 'an unreported amount'} of ${expectedMinorUnits} minor units`,
+      );
+      return false;
+    }
+
+    if (intent.currency?.toLowerCase() !== invoice.currency.toLowerCase()) {
+      this.logger.error(
+        `Refusing to settle invoice ${invoice.number}: intent ${intent.id} is in ` +
+          `${intent.currency ?? 'no stated currency'}, the invoice in ${invoice.currency}`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   /** Issue a refund through Stripe, then reflect it on the invoice. */
   async refund(invoiceId: string): Promise<void> {
     const invoice = await this.invoices.findByIdOrFail(invoiceId);
+    if (invoice.status === InvoiceStatus.REFUNDED) {
+      throw new BadRequestException(`Invoice ${invoice.number} has already been refunded`);
+    }
+    if (invoice.status !== InvoiceStatus.PAID) {
+      throw new BadRequestException('Only a paid invoice can be refunded');
+    }
+
+    // Claim the transition *before* calling Stripe. The check above reports a
+    // useful error; this is what actually makes the refund exclusive, so a
+    // double-submitted request cannot produce two refunds.
+    if (!(await this.invoices.claimRefund(invoice.id))) {
+      throw new BadRequestException(`Invoice ${invoice.number} has already been refunded`);
+    }
+
     if (!invoice.stripePaymentIntentId) {
       // Paid offline — there is nothing to refund at Stripe.
-      await this.invoices.markRefunded(invoice.id);
       return;
     }
-    const { stripe } = await this.client();
-    await stripe.refunds.create({ payment_intent: invoice.stripePaymentIntentId });
+
+    try {
+      const { stripe } = await this.client();
+      await stripe.refunds.create(
+        { payment_intent: invoice.stripePaymentIntentId },
+        // Belt and braces for the case the claim cannot cover: a retry from
+        // another instance reusing this key returns the original refund rather
+        // than creating a second one.
+        { idempotencyKey: `refund:${invoice.stripePaymentIntentId}` },
+      );
+    } catch (err) {
+      // No refund happened, so the invoice must not be left claiming otherwise.
+      await this.invoices.releaseRefundClaim(invoice.id);
+      throw err;
+    }
     // The charge.refunded webhook also fires; markRefunded tolerates both paths.
-    await this.invoices.markRefunded(invoice.id);
   }
 }

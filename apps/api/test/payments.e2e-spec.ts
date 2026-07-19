@@ -104,6 +104,30 @@ describe('Payments (e2e)', () => {
   const reload = (id: string) =>
     ctx.dataSource.getRepository(Invoice).findOneByOrFail({ id });
 
+  /**
+   * A `payment_intent.succeeded` event that collected exactly what the invoice
+   * asks for. Settlement checks `amount_received` against the invoice total, so
+   * an event built without one is not a payment the service will apply — the
+   * amount belongs in the fixture, as it does in a real Stripe payload.
+   */
+  function succeeded(
+    id: string,
+    inv: Invoice,
+    overrides: { metadata?: Record<string, string>; amountReceived?: number; currency?: string } = {},
+  ) {
+    return {
+      type: 'payment_intent.succeeded',
+      data: {
+        object: {
+          id,
+          metadata: overrides.metadata ?? { invoiceId: inv.id },
+          amount_received: overrides.amountReceived ?? Math.round(Number(inv.total) * 100),
+          currency: overrides.currency ?? inv.currency.toLowerCase(),
+        },
+      },
+    };
+  }
+
   describe('POST /api/invoices/:id/payment-intent', () => {
     it('creates an intent for the invoice amount in minor units', async () => {
       const inv = await invoice('issued');
@@ -285,10 +309,7 @@ describe('Payments (e2e)', () => {
     it('verifies against the raw body, not the parsed one', async () => {
       const inv = await invoice('issued');
       const payload = { type: 'payment_intent.succeeded', data: { object: { id: 'pi_1' } } };
-      mockWebhooks.constructEvent.mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: { object: { id: 'pi_1', metadata: { invoiceId: inv.id } } },
-      });
+      mockWebhooks.constructEvent.mockReturnValue(succeeded('pi_1', inv));
 
       await send(payload, 'sig_valid');
 
@@ -302,10 +323,7 @@ describe('Payments (e2e)', () => {
 
     it('settles the invoice named in the intent metadata', async () => {
       const inv = await invoice('issued');
-      mockWebhooks.constructEvent.mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: { object: { id: 'pi_ok', metadata: { invoiceId: inv.id } } },
-      });
+      mockWebhooks.constructEvent.mockReturnValue(succeeded('pi_ok', inv));
 
       const res = await send({}, 'sig_valid');
 
@@ -323,10 +341,7 @@ describe('Payments (e2e)', () => {
         .post(`/api/invoices/${inv.id}/payment-intent`)
         .set('Cookie', dentistSession.cookie);
 
-      mockWebhooks.constructEvent.mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: { object: { id: 'pi_linked', metadata: {} } },
-      });
+      mockWebhooks.constructEvent.mockReturnValue(succeeded('pi_linked', inv, { metadata: {} }));
 
       await send({}, 'sig_valid');
 
@@ -335,10 +350,7 @@ describe('Payments (e2e)', () => {
 
     it('tolerates a redelivered success event', async () => {
       const inv = await invoice('issued');
-      mockWebhooks.constructEvent.mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: { object: { id: 'pi_ok', metadata: { invoiceId: inv.id } } },
-      });
+      mockWebhooks.constructEvent.mockReturnValue(succeeded('pi_ok', inv));
 
       await send({}, 'sig_valid');
       const firstPaidAt = (await reload(inv.id)).paidAt;
@@ -350,6 +362,47 @@ describe('Payments (e2e)', () => {
       expect(stored.status).toBe(InvoiceStatus.PAID);
       // The original settlement time must not be overwritten.
       expect(stored.paidAt).toEqual(firstPaidAt);
+    });
+
+    it('refuses to settle an intent that collected less than the invoice total', async () => {
+      const inv = await invoice('issued');
+      // A genuine, correctly signed intent for one cent, carrying this
+      // invoice's id in its metadata. Trusting the metadata alone would close a
+      // $100 invoice for $0.01.
+      mockWebhooks.constructEvent.mockReturnValue(
+        succeeded('pi_short', inv, { amountReceived: 1 }),
+      );
+
+      const res = await send({}, 'sig_valid');
+
+      expect(res.status).toBe(200);
+      expect((await reload(inv.id)).status).toBe(InvoiceStatus.ISSUED);
+    });
+
+    it('refuses to settle an intent that reports no amount at all', async () => {
+      const inv = await invoice('issued');
+      mockWebhooks.constructEvent.mockReturnValue({
+        type: 'payment_intent.succeeded',
+        data: { object: { id: 'pi_silent', metadata: { invoiceId: inv.id } } },
+      });
+
+      const res = await send({}, 'sig_valid');
+
+      // Unverifiable is not the same as verified: an amount that cannot be
+      // checked must not settle an invoice.
+      expect(res.status).toBe(200);
+      expect((await reload(inv.id)).status).toBe(InvoiceStatus.ISSUED);
+    });
+
+    it('refuses to settle an intent denominated in another currency', async () => {
+      const inv = await invoice('issued');
+      // 10,000 minor units clears the amount check, but 10,000 yen is not $100.
+      mockWebhooks.constructEvent.mockReturnValue(succeeded('pi_jpy', inv, { currency: 'jpy' }));
+
+      const res = await send({}, 'sig_valid');
+
+      expect(res.status).toBe(200);
+      expect((await reload(inv.id)).status).toBe(InvoiceStatus.ISSUED);
     });
 
     it('acknowledges a failed payment without changing the invoice', async () => {
@@ -372,10 +425,7 @@ describe('Payments (e2e)', () => {
         .post(`/api/invoices/${inv.id}/payment-intent`)
         .set('Cookie', dentistSession.cookie);
 
-      mockWebhooks.constructEvent.mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: { object: { id: 'pi_ref', metadata: { invoiceId: inv.id } } },
-      });
+      mockWebhooks.constructEvent.mockReturnValue(succeeded('pi_ref', inv));
       await send({}, 'sig_valid');
 
       mockWebhooks.constructEvent.mockReturnValue({
@@ -421,6 +471,88 @@ describe('Payments (e2e)', () => {
       const res = await send({}, 'sig_valid');
 
       expect(res.status).not.toBe(401);
+    });
+  });
+
+  describe('POST /api/invoices/:id/refund', () => {
+    /** An invoice settled through Stripe, so it has an intent to refund against. */
+    async function paidThroughStripe(intentId = 'pi_paid'): Promise<Invoice> {
+      const inv = await invoice('issued');
+      mockPaymentIntents.create.mockResolvedValue({ id: intentId, client_secret: 'cs' });
+      await api(app)
+        .post(`/api/invoices/${inv.id}/payment-intent`)
+        .set('Cookie', dentistSession.cookie);
+      await api(app).post(`/api/invoices/${inv.id}/mark-paid`).set('Cookie', adminSession.cookie);
+      return reload(inv.id);
+    }
+
+    const refund = (id: string) =>
+      api(app).post(`/api/invoices/${id}/refund`).set('Cookie', adminSession.cookie);
+
+    it('refunds a paid invoice through Stripe', async () => {
+      const inv = await paidThroughStripe();
+      mockRefunds.create.mockResolvedValue({ id: 're_1' });
+
+      const res = await refund(inv.id);
+
+      expect(res.status).toBe(201);
+      expect(mockRefunds.create).toHaveBeenCalledWith(
+        expect.objectContaining({ payment_intent: 'pi_paid' }),
+        expect.objectContaining({ idempotencyKey: expect.any(String) }),
+      );
+      expect((await reload(inv.id)).status).toBe(InvoiceStatus.REFUNDED);
+    });
+
+    it('does not issue a second Stripe refund when refunded twice', async () => {
+      const inv = await paidThroughStripe();
+      mockRefunds.create.mockResolvedValue({ id: 're_1' });
+
+      await refund(inv.id);
+      const second = await refund(inv.id);
+
+      // The money leaves the lab's account at Stripe, so the guard has to stop
+      // the call — rejecting only afterwards would already have paid twice.
+      expect(second.status).toBe(400);
+      expect(mockRefunds.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves the invoice paid when Stripe rejects the refund', async () => {
+      const inv = await paidThroughStripe();
+      mockRefunds.create.mockRejectedValue(new Error('charge already refunded'));
+
+      const res = await refund(inv.id);
+
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      // No refund happened, so the invoice must not be left claiming one did.
+      expect((await reload(inv.id)).status).toBe(InvoiceStatus.PAID);
+    });
+
+    it('refuses to refund an invoice that was never paid', async () => {
+      const inv = await invoice('issued');
+
+      const res = await refund(inv.id);
+
+      expect(res.status).toBe(400);
+      expect(mockRefunds.create).not.toHaveBeenCalled();
+    });
+
+    it('does not un-refund an invoice when the original success event is redelivered', async () => {
+      const inv = await paidThroughStripe('pi_replay');
+      mockRefunds.create.mockResolvedValue({ id: 're_1' });
+      await refund(inv.id);
+      expect((await reload(inv.id)).status).toBe(InvoiceStatus.REFUNDED);
+
+      // Stripe redelivers `succeeded` for days. The event that first settled
+      // this invoice is still in flight when the refund is issued.
+      mockWebhooks.constructEvent.mockReturnValue(succeeded('pi_replay', inv));
+      const res = await api(app)
+        .post('/api/payments/webhook')
+        .set('stripe-signature', 'sig_valid')
+        .send({});
+
+      // 200 because retrying cannot help — but the refund stands.
+      expect(res.status).toBe(200);
+      expect((await reload(inv.id)).status).toBe(InvoiceStatus.REFUNDED);
     });
   });
 });

@@ -118,13 +118,7 @@ export class StatementsService {
     if (!dentist) throw new NotFoundException('Dentist not found');
 
     const { from, to } = monthRange(year, month);
-    const periodInvoices = await this.invoices
-      .createQueryBuilder('invoice')
-      .where('invoice.dentistId = :dentistId', { dentistId })
-      .andWhere('invoice.issueDate BETWEEN :from AND :to', { from, to })
-      .andWhere('invoice.status != :draft', { draft: InvoiceStatus.DRAFT })
-      .orderBy('invoice.issueDate', 'ASC')
-      .getMany();
+    const periodInvoices = await this.periodInvoices(dentistId, from, to);
 
     // Opening balance = everything still owed from before this period.
     const priorInvoices = await this.invoices
@@ -135,8 +129,12 @@ export class StatementsService {
       .getMany();
 
     const openingCents = priorInvoices.reduce((sum, i) => sum + this.toCents(i.total), 0);
+    // A refunded invoice is money returned, so it is no more a receivable than
+    // a cancelled one. Counting it as invoiced but never as paid — which is
+    // what excluding only CANCELLED does — overstates the closing balance by
+    // its full amount, permanently, for every refund the lab ever issues.
     const invoicedCents = periodInvoices
-      .filter((i) => i.status !== InvoiceStatus.CANCELLED)
+      .filter((i) => i.status !== InvoiceStatus.CANCELLED && i.status !== InvoiceStatus.REFUNDED)
       .reduce((sum, i) => sum + this.toCents(i.total), 0);
     const paidCents = periodInvoices
       .filter((i) => i.status === InvoiceStatus.PAID)
@@ -166,16 +164,46 @@ export class StatementsService {
         );
 
     // Render and cache the PDF so downloads are instant.
-    const buffer = await this.pdf.statement({
-      statement,
-      dentist,
-      invoices: periodInvoices,
-    });
-    const path = this.storage.statementPdfPath(dentistId, year, month);
-    await this.storage.save(path, buffer);
-    await this.statements.update(statement.id, { pdfPath: path });
+    await this.renderAndStorePdf(statement, dentist, periodInvoices);
 
     return this.findByIdOrFail(statement.id);
+  }
+
+  /** The non-draft invoices a statement covers, oldest first. */
+  private periodInvoices(dentistId: string, from: string, to: string): Promise<Invoice[]> {
+    return this.invoices
+      .createQueryBuilder('invoice')
+      .where('invoice.dentistId = :dentistId', { dentistId })
+      .andWhere('invoice.issueDate BETWEEN :from AND :to', { from, to })
+      .andWhere('invoice.status != :draft', { draft: InvoiceStatus.DRAFT })
+      .orderBy('invoice.issueDate', 'ASC')
+      .getMany();
+  }
+
+  /**
+   * Render a statement PDF from the figures already stored on the row, cache
+   * the blob, and point the row at it.
+   *
+   * It renders what it is given and recomputes nothing — that is the whole
+   * point of it being separate from `generate`. Restating a statement is a
+   * deliberate act (a correction), never a side effect of producing the file.
+   */
+  private async renderAndStorePdf(
+    statement: MonthlyStatement,
+    dentist: Dentist,
+    invoices: Invoice[],
+  ): Promise<string> {
+    const buffer = await this.pdf.statement({ statement, dentist, invoices });
+    const path = this.storage.statementPdfPath(
+      statement.dentistId,
+      statement.periodYear,
+      statement.periodMonth,
+    );
+    await this.storage.save(path, buffer);
+    if (statement.pdfPath !== path) {
+      await this.statements.update(statement.id, { pdfPath: path });
+    }
+    return path;
   }
 
   /** Generate statements for every active dentist for a period. */
@@ -232,25 +260,28 @@ export class StatementsService {
   /** Serve the statement PDF, re-rendering if the cached blob is missing. */
   async pdfFor(id: string, user: AuthenticatedUser): Promise<{ buffer: Buffer; filename: string }> {
     const statement = await this.findScoped(id, user);
+    const filename = `statement-${statement.periodYear}-${String(statement.periodMonth).padStart(2, '0')}.pdf`;
     const path =
       statement.pdfPath ??
       this.storage.statementPdfPath(statement.dentistId, statement.periodYear, statement.periodMonth);
 
     if (await this.storage.exists(path)) {
-      return {
-        buffer: await this.storage.read(path),
-        filename: `statement-${statement.periodYear}-${String(statement.periodMonth).padStart(2, '0')}.pdf`,
-      };
+      return { buffer: await this.storage.read(path), filename };
     }
 
-    const regenerated = await this.generate(
-      statement.dentistId,
-      statement.periodYear,
-      statement.periodMonth,
+    // The blob is missing — cleared storage, a restore, a write that never
+    // landed. Re-render it, but only re-render: calling `generate` here would
+    // recompute the totals against *today's* invoice statuses, so downloading
+    // a March statement in July could quietly rewrite what March said.
+    if (!statement.dentist) {
+      throw new NotFoundException('This statement has no dentist on record to render');
+    }
+    const { from, to } = monthRange(statement.periodYear, statement.periodMonth);
+    const rendered = await this.renderAndStorePdf(
+      statement,
+      statement.dentist,
+      await this.periodInvoices(statement.dentistId, from, to),
     );
-    return {
-      buffer: await this.storage.read(regenerated.pdfPath!),
-      filename: `statement-${statement.periodYear}-${String(statement.periodMonth).padStart(2, '0')}.pdf`,
-    };
+    return { buffer: await this.storage.read(rendered), filename };
   }
 }

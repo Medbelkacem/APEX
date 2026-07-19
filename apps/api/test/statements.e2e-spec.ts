@@ -6,8 +6,10 @@
  * writing `issueDate` directly, because generation always stamps today.
  */
 import { INestApplication } from '@nestjs/common';
+import { InvoiceStatus } from '@dental/shared-types';
 import { Invoice } from '../src/database/entities/invoice.entity';
 import { MonthlyStatement } from '../src/database/entities/monthly-statement.entity';
+import { StorageService } from '../src/storage/storage.service';
 import { createTestApp, TestApp } from './support/app';
 import { truncateAll } from './support/database';
 import { Fixtures } from './support/factories';
@@ -52,7 +54,10 @@ describe('Statements (e2e)', () => {
    */
   async function invoiceIn(
     issueDate: string,
-    options: { status?: 'draft' | 'issued' | 'paid'; patientReference?: string } = {},
+    options: {
+      status?: 'draft' | 'issued' | 'paid' | 'refunded';
+      patientReference?: string;
+    } = {},
   ): Promise<Invoice> {
     const { status = 'issued', patientReference = `PT-${issueDate}` } = options;
 
@@ -71,13 +76,18 @@ describe('Statements (e2e)', () => {
         .post(`/api/invoices/${invoice.body.id}/issue`)
         .set('Cookie', adminSession.cookie);
     }
-    if (status === 'paid') {
+    if (status === 'paid' || status === 'refunded') {
       await api(app)
         .post(`/api/invoices/${invoice.body.id}/mark-paid`)
         .set('Cookie', adminSession.cookie);
     }
 
     const repo = ctx.dataSource.getRepository(Invoice);
+    if (status === 'refunded') {
+      // The state a completed refund leaves behind. Driving it through Stripe
+      // is the payments suite's job; here only the resulting status matters.
+      await repo.update(invoice.body.id, { status: InvoiceStatus.REFUNDED });
+    }
     await repo.update(invoice.body.id, { issueDate });
     return repo.findOneByOrFail({ id: invoice.body.id });
   }
@@ -141,6 +151,22 @@ describe('Statements (e2e)', () => {
       expect(res.body).toMatchObject({
         totalInvoiced: '200.00',
         totalPaid: '100.00',
+      });
+    });
+
+    it('leaves nothing owed once an invoice has been refunded', async () => {
+      await invoiceIn('2025-03-10', { status: 'refunded' });
+
+      const res = await generate();
+
+      // A refund is money returned, so the invoice is no more a receivable than
+      // a cancelled one. Counting it as invoiced but never as paid — which is
+      // what excluding only cancellations does — would overstate the closing
+      // balance by its full amount on this and every later statement.
+      expect(res.body).toMatchObject({
+        totalInvoiced: '0.00',
+        totalPaid: '0.00',
+        closingBalance: '0.00',
       });
     });
 
@@ -277,6 +303,40 @@ describe('Statements (e2e)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.subarray(0, 5).toString()).toBe('%PDF-');
+    });
+
+    it('re-renders a missing PDF without restating the statement', async () => {
+      const inv = await invoiceIn('2025-03-05');
+      const created = await generate();
+      const repo = ctx.dataSource.getRepository(MonthlyStatement);
+      const before = await repo.findOneByOrFail({ id: created.body.id });
+
+      // The invoice is settled after the statement was cut, and then the cached
+      // blob goes missing — cleared storage, a restore, a write that never
+      // landed. `pdfFor` derives the path and checks the filesystem, so the
+      // blob itself has to be gone to reach the re-render path.
+      await api(app).post(`/api/invoices/${inv.id}/mark-paid`).set('Cookie', adminSession.cookie);
+      const storage = ctx.moduleRef.get(StorageService);
+      await storage.delete(storage.statementPdfPath(dentist.dentist.id, YEAR, MONTH));
+      await repo.update(created.body.id, { pdfPath: null });
+
+      const res = await api(app)
+        .get(`/api/statements/${created.body.id}/pdf`)
+        .set('Cookie', adminSession.cookie)
+        .buffer()
+        .parse((r, cb) => {
+          const chunks: Buffer[] = [];
+          r.on('data', (c: Buffer) => chunks.push(c));
+          r.on('end', () => cb(null, Buffer.concat(chunks)));
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.subarray(0, 5).toString()).toBe('%PDF-');
+
+      // A statement is a historical record. Reading it must not restate it.
+      const after = await repo.findOneByOrFail({ id: created.body.id });
+      expect(after.totalPaid).toBe(before.totalPaid);
+      expect(after.closingBalance).toBe(before.closingBalance);
     });
 
     it('records when a statement was sent', async () => {
