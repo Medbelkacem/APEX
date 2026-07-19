@@ -21,12 +21,36 @@ function messageFrom(body: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Endpoints that must never trigger a refresh — refreshing them is circular. */
+const NO_REFRESH = ['/auth/refresh', '/auth/login', '/auth/logout'];
+
+let refreshInFlight: Promise<boolean> | null = null;
+
 /**
- * Thin fetch wrapper around the REST API. Always sends cookies (credentials:
- * 'include') so the HttpOnly session cookie flows on same-site requests.
+ * Renew the session, coalescing concurrent callers into one request.
+ *
+ * The single flight is not an optimisation. Refresh tokens rotate and are
+ * single-use, and presenting a spent one is treated as theft — so a page that
+ * fired several requests at once and let each refresh on its own would replay
+ * the same token and get the whole session revoked. Everyone awaits one call.
  */
-export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_BASE}/api${path}`, {
+function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${API_BASE}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+      .then((res) => res.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
+function request(path: string, options: RequestInit): Promise<Response> {
+  return fetch(`${API_BASE}/api${path}`, {
     ...options,
     credentials: 'include',
     headers: {
@@ -34,6 +58,24 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
       ...(options.headers ?? {}),
     },
   });
+}
+
+/**
+ * Thin fetch wrapper around the REST API. Always sends cookies (credentials:
+ * 'include') so the HttpOnly session cookies flow on same-site requests.
+ *
+ * Access tokens are short-lived by design, so a 401 is an expected part of a
+ * normal session rather than an error: it is retried once behind a refresh. If
+ * the refresh also fails the session is genuinely over and the 401 surfaces.
+ */
+export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  let res = await request(path, options);
+
+  if (res.status === 401 && !NO_REFRESH.some((p) => path.startsWith(p))) {
+    if (await refreshSession()) {
+      res = await request(path, options);
+    }
+  }
 
   const raw = await res.text();
   const data = raw ? (JSON.parse(raw) as unknown) : null;

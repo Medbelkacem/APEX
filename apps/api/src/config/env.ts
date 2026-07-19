@@ -45,6 +45,8 @@ export const envSchema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   JWT_ACCESS_TTL: z.coerce.number().int().positive().default(900),
   JWT_REFRESH_TTL: z.coerce.number().int().positive().default(604800),
+  SESSION_IDLE_TTL: z.coerce.number().int().positive().default(1800),
+  REFRESH_REUSE_LEEWAY: z.coerce.number().int().min(0).default(10),
   RESET_TOKEN_TTL: z.coerce.number().int().positive().default(3600),
   // Argon2id cost. The floors are low enough for a fast test run and high
   // enough that a production typo cannot quietly disable the work factor.

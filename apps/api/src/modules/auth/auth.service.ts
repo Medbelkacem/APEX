@@ -14,6 +14,7 @@ import { PasswordService } from '../../common/security/password.service';
 import { AccountEmailsService } from '../../mail/account-emails.service';
 import { AuditService } from '../audit/audit.service';
 import { UsersService } from '../users/users.service';
+import { RefreshTokenService, RequestContext } from './refresh-token.service';
 
 /** Public projection of a user (no secrets, no internal auth state). */
 export type PublicUser = Omit<
@@ -38,6 +39,7 @@ export class AuthService {
     private readonly accountEmails: AccountEmailsService,
     private readonly audit: AuditService,
     private readonly passwords: PasswordService,
+    private readonly refreshTokens: RefreshTokenService,
   ) {}
 
   private get authCfg(): AuthConfig {
@@ -101,8 +103,15 @@ export class AuthService {
     }
   }
 
-  /** Sign the session JWT stored in the HttpOnly cookie. */
-  signSessionToken(user: User | PublicUser): string {
+  /**
+   * Sign the access JWT stored in the HttpOnly cookie.
+   *
+   * Deliberately short-lived: a JWT is valid because it verifies, so there is
+   * no way to withdraw one before it expires. Anything that must take effect
+   * promptly — logout, disabling an account, a password change — is enforced at
+   * the refresh step, which is why this window has to stay small.
+   */
+  signAccessToken(user: User | PublicUser): string {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -110,30 +119,65 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
     };
-    return this.jwt.sign(payload, { expiresIn: this.authCfg.refreshTtl });
+    return this.jwt.sign(payload, { expiresIn: this.authCfg.accessTtl });
   }
 
-  cookieOptions(): {
-    httpOnly: true;
-    secure: boolean;
-    sameSite: 'lax';
-    domain: string;
-    path: string;
-    maxAge: number;
-  } {
+  private baseCookieOptions() {
     return {
-      httpOnly: true,
+      httpOnly: true as const,
       secure: this.authCfg.cookieSecure,
-      sameSite: 'lax',
+      sameSite: 'lax' as const,
       domain: this.authCfg.cookieDomain,
       path: '/',
-      maxAge: this.authCfg.refreshTtl * 1000,
     };
   }
 
-  async login(email: string, password: string): Promise<{ token: string; user: PublicUser }> {
+  accessCookieOptions(): ReturnType<AuthService['baseCookieOptions']> & { maxAge: number } {
+    return { ...this.baseCookieOptions(), maxAge: this.authCfg.accessTtl * 1000 };
+  }
+
+  /**
+   * The refresh cookie outlives the access cookie by design, but its `maxAge`
+   * is only a browser hint — the row in `refresh_tokens` is what decides.
+   */
+  refreshCookieOptions(): ReturnType<AuthService['baseCookieOptions']> & { maxAge: number } {
+    return { ...this.baseCookieOptions(), maxAge: this.authCfg.refreshTtl * 1000 };
+  }
+
+  /** Options for clearing a cookie: same attributes, no lifetime. */
+  clearCookieOptions(): ReturnType<AuthService['baseCookieOptions']> {
+    return this.baseCookieOptions();
+  }
+
+  async login(
+    email: string,
+    password: string,
+    ctx: RequestContext = {},
+  ): Promise<{ accessToken: string; refreshToken: string; user: PublicUser }> {
     const user = await this.validateCredentials(email, password);
-    return { token: this.signSessionToken(user), user: this.toPublic(user) };
+    const refresh = await this.refreshTokens.issue(user.id, ctx);
+    return {
+      accessToken: this.signAccessToken(user),
+      refreshToken: refresh.raw,
+      user: this.toPublic(user),
+    };
+  }
+
+  /** Exchange a refresh token for a fresh pair, rotating the refresh token. */
+  async refreshSession(
+    rawRefreshToken: string,
+    ctx: RequestContext = {},
+  ): Promise<{ accessToken: string; refreshToken: string; user: PublicUser }> {
+    const { token, user } = await this.refreshTokens.rotate(rawRefreshToken, ctx);
+    return {
+      accessToken: this.signAccessToken(user),
+      refreshToken: token.raw,
+      user: this.toPublic(user),
+    };
+  }
+
+  async logout(rawRefreshToken?: string): Promise<void> {
+    if (rawRefreshToken) await this.refreshTokens.revoke(rawRefreshToken);
   }
 
   /** Always resolves (no user enumeration). Sends a reset email only if valid. */
@@ -153,6 +197,9 @@ export class AuthService {
     if (user.status === UserStatus.INVITED) {
       await this.users.setStatus(user.id, UserStatus.ACTIVE);
     }
+    // Resetting a password is how someone recovers a compromised account, so it
+    // has to end whatever sessions the other party was holding.
+    await this.refreshTokens.revokeAllForUser(user.id);
     await this.audit.record({
       userId: user.id,
       action: 'auth.password_reset',
@@ -167,6 +214,7 @@ export class AuthService {
     const ok = await this.passwords.verify(user.passwordHash, current);
     if (!ok) throw new UnauthorizedException('Current password is incorrect');
     await this.users.setPassword(user.id, next);
+    await this.refreshTokens.revokeAllForUser(user.id);
     await this.audit.record({
       userId: user.id,
       action: 'auth.password_changed',

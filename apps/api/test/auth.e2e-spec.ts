@@ -10,11 +10,20 @@ import { INestApplication } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
 import { UserStatus } from '@dental/shared-types';
 import { User } from '../src/database/entities/user.entity';
+import { RefreshToken } from '../src/database/entities/refresh-token.entity';
 import { UsersService } from '../src/modules/users/users.service';
+import { hashToken } from '../src/common/utils/tokens';
 import { createTestApp, TestApp } from './support/app';
 import { truncateAll } from './support/database';
 import { Fixtures, TEST_PASSWORD } from './support/factories';
-import { api, AUTH_COOKIE, cookieAttributes, cookieValue, login } from './support/http';
+import {
+  api,
+  AUTH_COOKIE,
+  cookieAttributes,
+  cookieValue,
+  login,
+  REFRESH_COOKIE,
+} from './support/http';
 
 describe('Authentication (e2e)', () => {
   let ctx: TestApp;
@@ -126,6 +135,226 @@ describe('Authentication (e2e)', () => {
         .send({ email: 'not-an-email', password: TEST_PASSWORD });
 
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('POST /api/auth/refresh', () => {
+    const refreshWith = (refreshCookie: string) =>
+      api(app).post('/api/auth/refresh').set('Cookie', refreshCookie);
+
+    /** Seconds a signed access token is valid for, read from the token itself. */
+    const accessTokenLifetime = (token: string): number => {
+      const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()) as {
+        iat: number;
+        exp: number;
+      };
+      return claims.exp - claims.iat;
+    };
+
+    it('issues a short-lived access token, not a week-long one', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+
+      // The access token cannot be revoked once signed, so its blast radius is
+      // its lifetime. JWT_ACCESS_TTL is 900s; the session lasts via refresh.
+      expect(accessTokenLifetime(session.token)).toBe(900);
+    });
+
+    it('exchanges the refresh cookie for a new session pair', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+
+      const res = await refreshWith(session.refreshCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.user).toMatchObject({ id: user.id });
+      expect(cookieValue(res, AUTH_COOKIE)).toBeTruthy();
+      expect(cookieValue(res, REFRESH_COOKIE)).toBeTruthy();
+    });
+
+    it('rotates the refresh token rather than reissuing the same one', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+
+      const res = await refreshWith(session.refreshCookie);
+
+      expect(cookieValue(res, REFRESH_COOKIE)).not.toBe(session.refreshToken);
+    });
+
+    /** Ages a spend past the leeway, so a replay reads as theft not as a race. */
+    const ageTheSpend = (rawToken: string) =>
+      ctx.dataSource
+        .getRepository(RefreshToken)
+        .update({ tokenHash: hashToken(rawToken) }, { revokedAt: new Date(Date.now() - 60_000) });
+
+    it('refuses a refresh token that has already been spent', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+      await refreshWith(session.refreshCookie);
+      await ageTheSpend(session.refreshToken);
+
+      const replay = await refreshWith(session.refreshCookie);
+
+      expect(replay.status).toBe(401);
+    });
+
+    it('revokes the whole session family when a spent token reappears later', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+      const rotated = await refreshWith(session.refreshCookie);
+      const live = cookieValue(rotated, REFRESH_COOKIE)!;
+
+      await ageTheSpend(session.refreshToken);
+
+      // Someone replays the old token: two parties now hold tokens from this
+      // login, and there is no way to tell which one is the legitimate holder.
+      await refreshWith(session.refreshCookie);
+
+      // So the successor dies too, rather than leaving a thief a working chain.
+      const res = await refreshWith(`${REFRESH_COOKIE}=${live}`);
+      expect(res.status).toBe(401);
+    });
+
+    it('treats a token presented twice at once as a race, not as theft', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+
+      // Two tabs waking from the same idle session replay one token. Revoking
+      // the family here would log people out for using the product normally.
+      const [first, second] = await Promise.all([
+        refreshWith(session.refreshCookie),
+        refreshWith(session.refreshCookie),
+      ]);
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+    });
+
+    it('leaves the session usable after such a race', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+
+      const [, second] = await Promise.all([
+        refreshWith(session.refreshCookie),
+        refreshWith(session.refreshCookie),
+      ]);
+
+      const live = cookieValue(second, REFRESH_COOKIE)!;
+      expect((await refreshWith(`${REFRESH_COOKIE}=${live}`)).status).toBe(200);
+    });
+
+    it('clears both cookies when the refresh is refused', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+      await refreshWith(session.refreshCookie);
+      await ageTheSpend(session.refreshToken);
+
+      const replay = await refreshWith(session.refreshCookie);
+
+      // Leaving them in place would produce a client that retries forever.
+      expect(cookieValue(replay, AUTH_COOKIE)).toBeUndefined();
+      expect(cookieValue(replay, REFRESH_COOKIE)).toBeUndefined();
+    });
+
+    it('rejects a request with no refresh cookie', async () => {
+      const res = await api(app).post('/api/auth/refresh');
+
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects a refresh token that was never issued', async () => {
+      const res = await refreshWith(`${REFRESH_COOKIE}=not-a-real-token`);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('refuses once the idle window has passed', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+      await ctx.dataSource
+        .getRepository(RefreshToken)
+        .update({ userId: user.id }, { expiresAt: new Date(Date.now() - 1000) });
+
+      const res = await refreshWith(session.refreshCookie);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('does not let rotation push back the absolute session ceiling', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+      const repo = ctx.dataSource.getRepository(RefreshToken);
+      const ceiling = (await repo.findOneByOrFail({ userId: user.id })).absoluteExpiresAt;
+
+      await refreshWith(session.refreshCookie);
+
+      // Otherwise an attacker with a live token could refresh indefinitely and
+      // the session would never require re-authentication.
+      const after = await repo.find({ where: { userId: user.id }, order: { createdAt: 'DESC' } });
+      expect(after[0].absoluteExpiresAt).toEqual(ceiling);
+    });
+
+    it('refuses to refresh a session whose account was disabled', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+      await ctx.dataSource
+        .getRepository(User)
+        .update(user.id, { status: UserStatus.DISABLED });
+
+      const res = await refreshWith(session.refreshCookie);
+
+      // Disabling an account must end the sessions it already has, not merely
+      // stop new logins — otherwise it takes effect only when the user leaves.
+      expect(res.status).toBe(401);
+    });
+
+    it('ends the session at logout, server-side', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+
+      await api(app).post('/api/auth/logout').set('Cookie', session.cookies);
+
+      // Clearing the cookie alone would leave a copied token usable for a week.
+      const res = await refreshWith(session.refreshCookie);
+      expect(res.status).toBe(401);
+    });
+
+    it('ends every session when the password is changed', async () => {
+      const user = await fixtures.user();
+      const elsewhere = await login(app, user.email);
+      const here = await login(app, user.email);
+
+      await api(app)
+        .post('/api/auth/change-password')
+        .set('Cookie', here.cookie)
+        .send({ currentPassword: TEST_PASSWORD, newPassword: 'BrandNewPassw0rd!' });
+
+      // Changing a password after a compromise is meant to lock the other
+      // party out; leaving their refresh token alive would defeat that.
+      expect((await refreshWith(elsewhere.refreshCookie)).status).toBe(401);
+    });
+
+    it('ends every session when the password is reset', async () => {
+      const user = await fixtures.user();
+      const session = await login(app, user.email);
+      const token = await users.issueResetToken(user.id);
+
+      await api(app)
+        .post('/api/auth/reset-password')
+        .send({ userId: user.id, token, password: 'BrandNewPassw0rd!' });
+
+      expect((await refreshWith(session.refreshCookie)).status).toBe(401);
+    });
+
+    it('keeps sessions independent across users', async () => {
+      const alice = await fixtures.user();
+      const bob = await fixtures.user();
+      const aliceSession = await login(app, alice.email);
+      const bobSession = await login(app, bob.email);
+
+      await api(app).post('/api/auth/logout').set('Cookie', aliceSession.cookies);
+
+      expect((await refreshWith(bobSession.refreshCookie)).status).toBe(200);
     });
   });
 

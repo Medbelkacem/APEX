@@ -1,4 +1,5 @@
 import { User } from './user.entity';
+import { RefreshToken } from './refresh-token.entity';
 import { Dentist } from './dentist.entity';
 import { CaseType } from './case-type.entity';
 import { CaseStatus } from './case-status.entity';
@@ -16,6 +17,7 @@ import { PlatformSetting } from './platform-setting.entity';
 
 export {
   User,
+  RefreshToken,
   Dentist,
   CaseType,
   CaseStatus,
@@ -35,6 +37,7 @@ export {
 /** All entities, consumed by TypeORM config and the CLI data-source. */
 export const entities = [
   User,
+  RefreshToken,
   Dentist,
   CaseType,
   CaseStatus,

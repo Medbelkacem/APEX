@@ -12,6 +12,7 @@ import request from 'supertest';
 import { TEST_PASSWORD } from './factories';
 
 export const AUTH_COOKIE = 'access_token';
+export const REFRESH_COOKIE = 'refresh_token';
 
 /** Return type is inferred: supertest v7 renamed this to `TestAgent<Test>`. */
 export function api(app: INestApplication) {
@@ -44,8 +45,14 @@ export function cookieAttributes(res: request.Response, name: string): string[] 
 }
 
 export interface Session {
+  /** Just the access cookie — what most requests need. */
   cookie: string;
   token: string;
+  /** Just the refresh cookie, for exercising `/api/auth/refresh`. */
+  refreshCookie: string;
+  refreshToken: string;
+  /** Both cookies, the way a browser would send them. */
+  cookies: string;
 }
 
 /**
@@ -69,5 +76,18 @@ export async function login(
   const token = cookieValue(res, AUTH_COOKIE);
   if (!token) throw new Error(`login(${email}) succeeded but set no ${AUTH_COOKIE} cookie`);
 
-  return { cookie: `${AUTH_COOKIE}=${token}`, token };
+  const refreshToken = cookieValue(res, REFRESH_COOKIE);
+  if (!refreshToken) {
+    throw new Error(`login(${email}) succeeded but set no ${REFRESH_COOKIE} cookie`);
+  }
+
+  const cookie = `${AUTH_COOKIE}=${token}`;
+  const refreshCookie = `${REFRESH_COOKIE}=${refreshToken}`;
+  return {
+    cookie,
+    token,
+    refreshCookie,
+    refreshToken,
+    cookies: `${cookie}; ${refreshCookie}`,
+  };
 }
