@@ -100,10 +100,12 @@ and `ILIKE`, and money lives in `decimal` columns whose string round-tripping
 is part of what the suite asserts. An in-memory engine would test a different
 program.
 
-`test/known-money-defects.e2e-spec.ts` holds reproductions of confirmed,
-unfixed money-path bugs. They are marked `it.failing()`, so they report as
-passing while the bug exists and start failing once it is fixed — at which
-point drop the `.failing` to turn each into an ordinary regression guard.
+The five money-path defects that suite originally caught — a double Stripe
+refund, a redelivered webhook un-refunding an invoice, settlement that never
+checked the amount collected, a statement restated by downloading it, and a
+refund overstating the closing balance — are fixed. Their reproductions now
+live as ordinary regression guards in `payments.e2e-spec.ts` and
+`statements.e2e-spec.ts`.
 
 ## Repository layout
 
