@@ -17,6 +17,7 @@ import type { Request, Response } from 'express';
 import { AuthenticatedUser, UserRole } from '@dental/shared-types';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from '../audit/audit.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -186,6 +187,9 @@ export class PaymentsWebhookController {
 
   @Post('webhook')
   @Public()
+  // Stripe is not a browser and holds no cookie of ours, so there is nothing
+  // for a forged request to borrow. The signature is this route's credential.
+  @SkipCsrf()
   @HttpCode(200)
   @ApiExcludeEndpoint()
   async webhook(

@@ -36,9 +36,11 @@ let refreshInFlight: Promise<boolean> | null = null;
  */
 function refreshSession(): Promise<boolean> {
   if (!refreshInFlight) {
+    const token = csrfToken();
     refreshInFlight = fetch(`${API_BASE}/api/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
+      headers: token ? { 'X-CSRF-Token': token } : undefined,
     })
       .then((res) => res.ok)
       .catch(() => false)
@@ -49,12 +51,27 @@ function refreshSession(): Promise<boolean> {
   return refreshInFlight;
 }
 
+/**
+ * The CSRF token the API issued, read back out of its (script-readable) cookie.
+ *
+ * Echoing it in a header is what a forged cross-site request cannot do: the
+ * browser would attach the cookie for the attacker, but same-origin policy
+ * stops their page from reading it to build the header.
+ */
+function csrfToken(): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 function request(path: string, options: RequestInit): Promise<Response> {
+  const token = csrfToken();
   return fetch(`${API_BASE}/api${path}`, {
     ...options,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { 'X-CSRF-Token': token } : {}),
       ...(options.headers ?? {}),
     },
   });

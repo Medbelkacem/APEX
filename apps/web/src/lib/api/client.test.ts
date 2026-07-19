@@ -63,6 +63,61 @@ describe('apiFetch', () => {
   });
 });
 
+describe('CSRF token', () => {
+  afterEach(() => {
+    document.cookie = 'csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  });
+
+  it('echoes the cookie back in a header', async () => {
+    document.cookie = 'csrf_token=tok-123; path=/';
+    fetchMock.mockResolvedValueOnce(reply(200, {}));
+
+    await apiFetch('/cases', { method: 'POST' });
+
+    // A forged cross-site request gets the cookie attached for it but cannot
+    // read it to build this header — that asymmetry is the whole protection.
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      headers: expect.objectContaining({ 'X-CSRF-Token': 'tok-123' }),
+    });
+  });
+
+  it('sends the token on the refresh call too', async () => {
+    document.cookie = 'csrf_token=tok-123; path=/';
+    fetchMock
+      .mockResolvedValueOnce(reply(401))
+      .mockResolvedValueOnce(reply(200))
+      .mockResolvedValueOnce(reply(200, {}));
+
+    await apiFetch('/cases');
+
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({
+      headers: { 'X-CSRF-Token': 'tok-123' },
+    });
+  });
+
+  it('picks the token out from among other cookies', async () => {
+    document.cookie = 'other=first; path=/';
+    document.cookie = 'csrf_token=tok-456; path=/';
+    fetchMock.mockResolvedValueOnce(reply(200, {}));
+
+    await apiFetch('/cases', { method: 'POST' });
+
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      headers: expect.objectContaining({ 'X-CSRF-Token': 'tok-456' }),
+    });
+    document.cookie = 'other=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  });
+
+  it('omits the header when no token has been issued', async () => {
+    fetchMock.mockResolvedValueOnce(reply(200, {}));
+
+    await apiFetch('/cases', { method: 'POST' });
+
+    const headers = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+    expect(headers['X-CSRF-Token']).toBeUndefined();
+  });
+});
+
 describe('refresh on 401', () => {
   it('refreshes and retries once', async () => {
     fetchMock

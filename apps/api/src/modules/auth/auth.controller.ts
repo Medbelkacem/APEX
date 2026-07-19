@@ -15,6 +15,8 @@ import { Request, Response } from 'express';
 import { AuthenticatedUser } from '@dental/shared-types';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CSRF_COOKIE } from '../../common/guards/csrf.guard';
+import { generateToken } from '../../common/utils/tokens';
 import { AuthService } from './auth.service';
 import { RequestContext } from './refresh-token.service';
 import {
@@ -42,6 +44,10 @@ export class AuthController {
   private setSessionCookies(res: Response, accessToken: string, refreshToken: string): void {
     res.cookie(ACCESS_COOKIE, accessToken, this.auth.accessCookieOptions());
     res.cookie(REFRESH_COOKIE, refreshToken, this.auth.refreshCookieOptions());
+    // Deliberately readable by script: the client has to echo it in a header,
+    // and an attacker's page cannot read it across origins. Its secrecy from
+    // *other sites* is what matters, not secrecy from this one.
+    res.cookie(CSRF_COOKIE, generateToken(16).raw, this.auth.csrfCookieOptions());
   }
 
   @Public()
@@ -98,6 +104,7 @@ export class AuthController {
     const options = this.auth.clearCookieOptions();
     res.clearCookie(ACCESS_COOKIE, options);
     res.clearCookie(REFRESH_COOKIE, options);
+    res.clearCookie(CSRF_COOKIE, { ...options, httpOnly: false });
   }
 
   @Post('logout')

@@ -144,6 +144,22 @@ export class AuthService {
     return { ...this.baseCookieOptions(), maxAge: this.authCfg.refreshTtl * 1000 };
   }
 
+  /**
+   * The CSRF cookie is the one cookie here that is *not* httpOnly — the client
+   * has to read it to echo it back in a header. It carries no authority on its
+   * own, so script access to it grants nothing.
+   */
+  csrfCookieOptions(): Omit<ReturnType<AuthService['baseCookieOptions']>, 'httpOnly'> & {
+    httpOnly: false;
+    maxAge: number;
+  } {
+    return {
+      ...this.baseCookieOptions(),
+      httpOnly: false,
+      maxAge: this.authCfg.refreshTtl * 1000,
+    };
+  }
+
   /** Options for clearing a cookie: same attributes, no lifetime. */
   clearCookieOptions(): ReturnType<AuthService['baseCookieOptions']> {
     return this.baseCookieOptions();
