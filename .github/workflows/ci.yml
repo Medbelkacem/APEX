@@ -61,5 +61,10 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # Runs against the service container above. The harness creates and
+      # migrates its own `dental_test` database, so the dev one is never touched.
+      - name: End-to-end tests
+        run: pnpm --filter @dental/api test:e2e
+
       - name: Build
         run: pnpm build

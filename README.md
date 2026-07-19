@@ -74,9 +74,36 @@ Mailpit (captured emails) → http://localhost:8025.
 | `pnpm build` | Build all packages |
 | `pnpm lint` | Lint all packages |
 | `pnpm typecheck` | Type-check all packages |
-| `pnpm test` | Run all tests |
+| `pnpm test` | Run all unit tests (api + web) |
 | `pnpm db:migrate` | Run TypeORM migrations |
 | `pnpm db:seed` | Seed reference + admin data |
+
+## Testing
+
+| Layer | Command | Notes |
+| --- | --- | --- |
+| API unit | `pnpm --filter @dental/api test` | Jest, no infrastructure needed |
+| Web unit | `pnpm --filter @dental/web test` | Vitest + Testing Library (jsdom) |
+| API end-to-end | `pnpm --filter @dental/api test:e2e` | Needs a running PostgreSQL |
+
+The end-to-end suite boots the real Nest application — global guards, cookie
+session, serializer, Stripe raw-body webhook — against a real database. It
+creates and migrates its own **`dental_test`** database and truncates between
+tests, so it never touches your development data. Start a database first with
+`pnpm db:local` (or `pnpm docker:up`); the suite fails with instructions if it
+cannot reach one. Redis is not required: jobs run inline and mail goes to the
+logger.
+
+A real PostgreSQL is deliberate rather than incidental — case and invoice
+numbering take a transaction-scoped advisory lock, filtering uses `INTERVAL`
+and `ILIKE`, and money lives in `decimal` columns whose string round-tripping
+is part of what the suite asserts. An in-memory engine would test a different
+program.
+
+`test/known-money-defects.e2e-spec.ts` holds reproductions of confirmed,
+unfixed money-path bugs. They are marked `it.failing()`, so they report as
+passing while the bug exists and start failing once it is fixed — at which
+point drop the `.failing` to turn each into an ordinary regression guard.
 
 ## Repository layout
 

@@ -37,6 +37,9 @@ storage/statements/*
 coverage/
 .nyc_output/
 
+# Scratch storage root written by the API end-to-end suite (see test/support/env.ts)
+apps/api/test/.tmp-storage/
+
 # OS / editor
 .DS_Store
 Thumbs.db

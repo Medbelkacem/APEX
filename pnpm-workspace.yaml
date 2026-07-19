@@ -7,6 +7,9 @@ packages:
 # fall back to pure JS, so they stay disabled.
 allowBuilds:
   "@embedded-postgres/linux-x64": true
+  # Vitest runs the web test suite through esbuild; without its postinstall the
+  # platform binary is never unpacked and every run fails to start.
+  esbuild: true
   "@nestjs/core": false
   msgpackr-extract: false
   unrs-resolver: false
