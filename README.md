@@ -137,6 +137,39 @@ browser's `Content-Type`): `.stl` (binary + ASCII), `.png`, `.jpg/.jpeg`, `.pdf`
 each with its own size cap. Downloads stream through an authenticated endpoint
 that verifies case ownership.
 
+## Sessions
+
+A session is a short-lived access JWT (`JWT_ACCESS_TTL`, 15 min) in an HttpOnly
+cookie, plus a refresh token stored server-side in `refresh_tokens`. Only the
+token's SHA-256 is persisted, so a database backup cannot resume anyone's
+session.
+
+Refresh tokens are single-use. Each refresh spends the presented token and
+issues a successor in the same family, so a token used twice means two parties
+held it — and since neither can be identified as the legitimate one, the family
+is revoked. A replay within `REFRESH_REUSE_LEEWAY` is treated as a race instead
+(two tabs waking together), provided the family still has a live token. Sessions
+also end on idle (`SESSION_IDLE_TTL`), at an absolute ceiling
+(`JWT_REFRESH_TTL`, which rotation never extends), at logout, on a password
+change or reset, and when an account is disabled.
+
+Because the access token is short, both clients renew: the browser client
+retries a 401 once behind a refresh, coalescing concurrent refreshes into one
+request, and Next.js middleware refreshes on navigation — a server component
+cannot set cookies, so middleware is the only place an SSR session can be
+renewed.
+
+**Passwords** are Argon2id at the OWASP baseline (`ARGON2_*`). Accounts created
+before the migration still hold bcrypt hashes; those verify normally and are
+re-hashed on the next successful login, which is the only moment the plaintext
+exists.
+
+**CSRF** is enforced on every state-changing request in two layers: a stated
+`Origin`/`Referer` must be one we serve, and a caller holding the (script-
+readable) `csrf_token` cookie must echo it in `X-CSRF-Token`. Clients that state
+no origin and hold no cookie — curl, mobile, server-to-server — are not subject
+to CSRF and are not blocked. The signature-verified Stripe webhook is exempt.
+
 **Money** crosses the wire as decimal strings and is computed in integer cents,
 so totals never drift through binary floating point.
 
