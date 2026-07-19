@@ -8,6 +8,23 @@ const nextConfig = {
     // Lint is run as a separate CI step; don't fail production builds on it.
     ignoreDuringBuilds: true,
   },
+  async headers() {
+    return [
+      {
+        /*
+         * The worker decides what every other request does, so a cached copy of
+         * it pins the whole cache policy to whatever shipped last. Browsers
+         * already revalidate worker scripts, but a CDN in front of this app
+         * does not know that.
+         */
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
