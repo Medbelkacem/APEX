@@ -46,7 +46,11 @@ export const envSchema = z.object({
   JWT_ACCESS_TTL: z.coerce.number().int().positive().default(900),
   JWT_REFRESH_TTL: z.coerce.number().int().positive().default(604800),
   RESET_TOKEN_TTL: z.coerce.number().int().positive().default(3600),
-  BCRYPT_COST: z.coerce.number().int().min(10).max(15).default(12),
+  // Argon2id cost. The floors are low enough for a fast test run and high
+  // enough that a production typo cannot quietly disable the work factor.
+  ARGON2_MEMORY_COST: z.coerce.number().int().min(1024).default(19456),
+  ARGON2_TIME_COST: z.coerce.number().int().min(1).default(2),
+  ARGON2_PARALLELISM: z.coerce.number().int().min(1).default(1),
   LOGIN_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   LOGIN_LOCKOUT_SECONDS: z.coerce.number().int().positive().default(900),
   COOKIE_DOMAIN: z.string().default('localhost'),

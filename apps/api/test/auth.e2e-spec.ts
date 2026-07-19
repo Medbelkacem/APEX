@@ -7,6 +7,7 @@
  * service-level unit test exercises.
  */
 import { INestApplication } from '@nestjs/common';
+import bcrypt from 'bcryptjs';
 import { UserStatus } from '@dental/shared-types';
 import { User } from '../src/database/entities/user.entity';
 import { UsersService } from '../src/modules/users/users.service';
@@ -125,6 +126,75 @@ describe('Authentication (e2e)', () => {
         .send({ email: 'not-an-email', password: TEST_PASSWORD });
 
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('legacy password hashes', () => {
+    const storedHash = async (id: string): Promise<string> => {
+      const row = await ctx.dataSource
+        .getRepository(User)
+        .createQueryBuilder('user')
+        .addSelect('user.passwordHash')
+        .where('user.id = :id', { id })
+        .getOneOrFail();
+      return row.passwordHash!;
+    };
+
+    /** An account created before the Argon2id migration. */
+    const withBcryptHash = async (): Promise<User> => {
+      const user = await fixtures.user();
+      await ctx.dataSource
+        .getRepository(User)
+        .update(user.id, { passwordHash: await bcrypt.hash(TEST_PASSWORD, 10) });
+      return user;
+    };
+
+    it('lets a user with a bcrypt hash log in', async () => {
+      const user = await withBcryptHash();
+
+      const res = await api(app)
+        .post('/api/auth/login')
+        .send({ email: user.email, password: TEST_PASSWORD });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('upgrades the stored hash to Argon2id on that login', async () => {
+      const user = await withBcryptHash();
+      expect(await storedHash(user.id)).toMatch(/^\$2[aby]\$/);
+
+      await api(app).post('/api/auth/login').send({ email: user.email, password: TEST_PASSWORD });
+
+      // A successful login is the only moment the plaintext is available, so it
+      // is the only chance to re-hash without asking the user to do anything.
+      expect(await storedHash(user.id)).toMatch(/^\$argon2id\$/);
+    });
+
+    it('leaves the password working after the upgrade', async () => {
+      const user = await withBcryptHash();
+      await api(app).post('/api/auth/login').send({ email: user.email, password: TEST_PASSWORD });
+
+      const again = await api(app)
+        .post('/api/auth/login')
+        .send({ email: user.email, password: TEST_PASSWORD });
+
+      expect(again.status).toBe(200);
+      expect(
+        (await api(app).post('/api/auth/login').send({
+          email: user.email,
+          password: 'WrongPassw0rd!',
+        })).status,
+      ).toBe(401);
+    });
+
+    it('does not upgrade on a failed login', async () => {
+      const user = await withBcryptHash();
+
+      await api(app)
+        .post('/api/auth/login')
+        .send({ email: user.email, password: 'WrongPassw0rd!' });
+
+      expect(await storedHash(user.id)).toMatch(/^\$2[aby]\$/);
     });
   });
 

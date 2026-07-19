@@ -38,9 +38,14 @@ withDefault('QUEUE_DRIVER', 'inline');
 withDefault('MAIL_DRIVER', 'log');
 
 withDefault('JWT_SECRET', 'test-secret-value-at-least-16-chars');
-// The schema floor is 10. Left at the production default of 12, bcrypt alone
-// would add roughly a quarter-second to every fixture that sets a password.
-withDefault('BCRYPT_COST', '10');
+// Argon2 is deliberately expensive, and the suite logs in twice per test. At
+// the production baseline (19 MiB, 2 passes) verification alone would add well
+// over ten seconds across the run, so the cost is floored here. Fixtures hash
+// at these same values, which also keeps `needsRehash` quiet — the upgrade path
+// is exercised by its own tests, not incidentally by every login.
+withDefault('ARGON2_MEMORY_COST', '1024');
+withDefault('ARGON2_TIME_COST', '1');
+withDefault('ARGON2_PARALLELISM', '1');
 
 withDefault('STORAGE_DRIVER', 'local');
 withDefault('STORAGE_LOCAL_ROOT', TEST_STORAGE_ROOT);

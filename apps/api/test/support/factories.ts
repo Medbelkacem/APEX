@@ -10,8 +10,10 @@
  * concurrently cannot collide on the unique index.
  */
 import { DataSource } from 'typeorm';
-import * as bcrypt from 'bcryptjs';
+import { hash as argon2Hash } from '@node-rs/argon2';
 import { UserRole, UserStatus } from '@dental/shared-types';
+import { authConfig } from '../../src/config/auth.config';
+import { argon2OptionsFrom } from '../../src/common/security/password.service';
 import { User } from '../../src/database/entities/user.entity';
 import { Dentist } from '../../src/database/entities/dentist.entity';
 import { CaseType } from '../../src/database/entities/case-type.entity';
@@ -40,7 +42,7 @@ export class Fixtures {
 
   private async hash(): Promise<string> {
     if (!this.passwordHash) {
-      this.passwordHash = await bcrypt.hash(TEST_PASSWORD, Number(process.env.BCRYPT_COST ?? 10));
+      this.passwordHash = await argon2Hash(TEST_PASSWORD, argon2OptionsFrom(authConfig()));
     }
     return this.passwordHash;
   }

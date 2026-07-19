@@ -1,7 +1,9 @@
 import { DataSource } from 'typeorm';
-import bcrypt from 'bcryptjs';
+import { hash as argon2Hash } from '@node-rs/argon2';
 import { UserRole, UserStatus } from '@dental/shared-types';
 import { User } from '../entities';
+import { authConfig } from '../../config/auth.config';
+import { argon2OptionsFrom } from '../../common/security/password.service';
 
 /** Create the first super-admin from env, if it does not already exist. */
 export async function seedAdmin(ds: DataSource): Promise<void> {
@@ -16,8 +18,7 @@ export async function seedAdmin(ds: DataSource): Promise<void> {
   }
 
   const password = process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe123!';
-  const cost = Number(process.env.BCRYPT_COST ?? 12);
-  const passwordHash = await bcrypt.hash(password, cost);
+  const passwordHash = await argon2Hash(password, argon2OptionsFrom(authConfig()));
 
   const admin = repo.create({
     email,

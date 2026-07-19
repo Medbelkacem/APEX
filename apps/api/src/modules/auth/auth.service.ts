@@ -1,15 +1,16 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import bcrypt from 'bcryptjs';
 import { AuthenticatedUser, UserRole, UserStatus } from '@dental/shared-types';
 import { User } from '../../database/entities';
 import { AuthConfig } from '../../config/auth.config';
 import { JwtPayload } from '../../common/types/authenticated-request';
+import { PasswordService } from '../../common/security/password.service';
 import { AccountEmailsService } from '../../mail/account-emails.service';
 import { AuditService } from '../audit/audit.service';
 import { UsersService } from '../users/users.service';
@@ -28,12 +29,15 @@ export type PublicUser = Omit<
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly users: UsersService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly accountEmails: AccountEmailsService,
     private readonly audit: AuditService,
+    private readonly passwords: PasswordService,
   ) {}
 
   private get authCfg(): AuthConfig {
@@ -54,14 +58,47 @@ export class AuthService {
       throw new ForbiddenException('Account temporarily locked. Try again later.');
     }
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    const ok = await this.passwords.verify(user.passwordHash, password);
     if (!ok) {
       await this.users.registerFailedLogin(user);
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    // A successful login is the only point at which the plaintext exists, and
+    // therefore the only chance to move a legacy bcrypt hash (or one made with
+    // since-raised cost factors) onto the current algorithm.
+    if (this.passwords.needsRehash(user.passwordHash)) {
+      await this.upgradePasswordHash(user, password);
+    }
+
     await this.users.recordSuccessfulLogin(user.id);
     return user;
+  }
+
+  /**
+   * Re-hash a verified password with the current algorithm and parameters.
+   *
+   * Failure here is logged and swallowed: the user supplied the right password,
+   * so refusing the login over a housekeeping write would lock them out of an
+   * account that is in no way compromised. The next login retries it.
+   */
+  private async upgradePasswordHash(user: User, plain: string): Promise<void> {
+    try {
+      const upgraded = await this.passwords.hash(plain);
+      await this.users.replacePasswordHash(user.id, upgraded);
+      await this.audit.record({
+        userId: user.id,
+        action: 'auth.password_hash_upgraded',
+        entityType: 'user',
+        entityId: user.id,
+      });
+    } catch (err) {
+      this.logger.error(
+        `Could not upgrade the password hash for user ${user.id}: ${
+          err instanceof Error ? err.message : 'unknown'
+        }`,
+      );
+    }
   }
 
   /** Sign the session JWT stored in the HttpOnly cookie. */
@@ -127,7 +164,7 @@ export class AuthService {
   async changePassword(userId: string, current: string, next: string): Promise<void> {
     const user = await this.users.findByIdWithSecret(userId);
     if (!user || !user.passwordHash) throw new UnauthorizedException();
-    const ok = await bcrypt.compare(current, user.passwordHash);
+    const ok = await this.passwords.verify(user.passwordHash, current);
     if (!ok) throw new UnauthorizedException('Current password is incorrect');
     await this.users.setPassword(user.id, next);
     await this.audit.record({

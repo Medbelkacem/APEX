@@ -7,10 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
-import bcrypt from 'bcryptjs';
 import { UserRole, UserStatus } from '@dental/shared-types';
 import { User } from '../../database/entities';
 import { AuthConfig } from '../../config/auth.config';
+import { PasswordService } from '../../common/security/password.service';
 import { generateToken, hashToken } from '../../common/utils/tokens';
 import { Paginated, paginate, resolvePagination } from '../../common/utils/pagination';
 
@@ -41,6 +41,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User) private readonly repo: Repository<User>,
     private readonly config: ConfigService,
+    private readonly passwords: PasswordService,
   ) {}
 
   private get authCfg(): AuthConfig {
@@ -48,7 +49,16 @@ export class UsersService {
   }
 
   hashPassword(plain: string): Promise<string> {
-    return bcrypt.hash(plain, this.authCfg.bcryptCost);
+    return this.passwords.hash(plain);
+  }
+
+  /**
+   * Replace a stored hash in place, without touching anything else on the
+   * account. Used to upgrade a legacy hash during login, so it must not disturb
+   * the login bookkeeping happening around it.
+   */
+  async replacePasswordHash(userId: string, passwordHash: string): Promise<void> {
+    await this.repo.update(userId, { passwordHash });
   }
 
   /** Includes the normally-hidden secret columns (passwordHash, reset token). */
