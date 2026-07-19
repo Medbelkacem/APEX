@@ -56,6 +56,17 @@ export class AuthService {
     if (user.status === UserStatus.DISABLED) {
       throw new ForbiddenException('This account has been disabled');
     }
+    // A self-registration that has not been approved yet. The two halves of
+    // PENDING need different advice — chase your inbox, or wait for us — and
+    // saying so leaks nothing: whoever is holding the right password here is
+    // the person who registered.
+    if (user.status === UserStatus.PENDING) {
+      throw new ForbiddenException(
+        user.emailVerifiedAt
+          ? 'Your registration is awaiting approval. We will email you once your account is open.'
+          : 'Please confirm your email address first — check your inbox for the verification link.',
+      );
+    }
     if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
       throw new ForbiddenException('Account temporarily locked. Try again later.');
     }
@@ -211,6 +222,9 @@ export class AuthService {
     await this.users.assertValidResetToken(user, token);
     await this.users.setPassword(user.id, newPassword);
     if (user.status === UserStatus.INVITED) {
+      // Opening the emailed setup link is proof of delivery, the same proof a
+      // self-registration's verification link provides.
+      await this.users.markEmailVerified(user.id);
       await this.users.setStatus(user.id, UserStatus.ACTIVE);
     }
     // Resetting a password is how someone recovers a compromised account, so it

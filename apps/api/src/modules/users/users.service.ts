@@ -153,6 +153,66 @@ export class UsersService {
     return raw;
   }
 
+  /**
+   * Issue a single-use email-verification token; returns the raw value.
+   *
+   * Kept separate from the reset token rather than reusing that column: a
+   * registrant may need a password reset before their address is confirmed, and
+   * one column cannot hold two live tokens without one silently voiding the
+   * other.
+   */
+  async issueEmailVerificationToken(id: string, ttlSeconds: number): Promise<string> {
+    const { raw, hash } = generateToken();
+    await this.repo.update(id, {
+      emailVerificationTokenHash: hash,
+      emailVerificationExpiresAt: new Date(Date.now() + ttlSeconds * 1000),
+    });
+    return raw;
+  }
+
+  /** Stamp the address as confirmed without going through a token. */
+  async markEmailVerified(id: string): Promise<void> {
+    await this.repo.update(id, {
+      emailVerifiedAt: new Date(),
+      emailVerificationTokenHash: null,
+      emailVerificationExpiresAt: null,
+    });
+  }
+
+  /** Includes the normally-hidden email-verification columns. */
+  findByIdWithVerification(id: string): Promise<User | null> {
+    return this.repo
+      .createQueryBuilder('user')
+      .addSelect(['user.emailVerificationTokenHash', 'user.emailVerificationExpiresAt'])
+      .where('user.id = :id', { id })
+      .getOne();
+  }
+
+  /**
+   * Consume a verification token and stamp the address as confirmed.
+   *
+   * The token is cleared on success, so the link works exactly once — a
+   * verification mail sitting in an inbox forever is not a standing credential.
+   */
+  async confirmEmail(user: User, rawToken: string): Promise<void> {
+    if (user.emailVerifiedAt) return; // Already done; a double click is not an error.
+    if (!user.emailVerificationTokenHash || !user.emailVerificationExpiresAt) {
+      throw new BadRequestException('No pending verification for this account');
+    }
+    if (user.emailVerificationExpiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('Verification link has expired');
+    }
+    if (hashToken(rawToken) !== user.emailVerificationTokenHash) {
+      throw new BadRequestException('Invalid verification link');
+    }
+
+    await this.repo.update(user.id, {
+      emailVerifiedAt: new Date(),
+      emailVerificationTokenHash: null,
+      emailVerificationExpiresAt: null,
+    });
+  }
+
   /** Validate a raw reset token against a user; throws if invalid or expired. */
   async assertValidResetToken(user: User, rawToken: string): Promise<void> {
     if (!user.passwordResetTokenHash || !user.passwordResetExpiresAt) {

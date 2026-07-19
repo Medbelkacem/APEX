@@ -27,6 +27,9 @@ export const dentistsApi = {
   disable: (id: string) => api.post<DentistWithUser>(`/dentists/${id}/disable`),
   enable: (id: string) => api.post<DentistWithUser>(`/dentists/${id}/enable`),
   resetPassword: (id: string) => api.post<{ success: boolean }>(`/dentists/${id}/reset-password`),
+  approve: (id: string) => api.post<DentistWithUser>(`/dentists/${id}/approve`),
+  reject: (id: string, reason?: string | null) =>
+    api.post<DentistWithUser>(`/dentists/${id}/reject`, { reason: reason ?? null }),
 };
 
 // ── Pricing ────────────────────────────────────────────────────────────────

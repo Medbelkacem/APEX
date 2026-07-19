@@ -23,6 +23,11 @@ export interface User extends BaseModel {
   phone: string | null;
   status: UserStatus;
   lastLoginAt: string | null;
+  /**
+   * When the address was confirmed. Null on accounts that predate email
+   * verification, so it separates the two halves of `pending` and nothing else.
+   */
+  emailVerifiedAt: string | null;
 }
 
 export interface Dentist extends BaseModel {

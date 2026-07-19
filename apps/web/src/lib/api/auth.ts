@@ -12,8 +12,26 @@ export interface PublicUserResponse extends AuthenticatedUser {
   fullName: string;
 }
 
+export interface RegisterInput {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  clinicName?: string | null;
+  clinicAddress?: string | null;
+}
+
 export const authApi = {
   login: (input: LoginInput) => api.post<{ user: PublicUserResponse }>('/auth/login', input),
+  /**
+   * Always resolves the same way whether or not the address was already taken —
+   * the API will not confirm who is registered, so there is no "email in use"
+   * error to surface here.
+   */
+  register: (input: RegisterInput) => api.post<{ message: string }>('/auth/register', input),
+  verifyEmail: (input: { userId: string; token: string }) =>
+    api.post<{ status: string; message: string }>('/auth/verify-email', input),
   logout: () => api.post<{ success: boolean }>('/auth/logout'),
   me: () => api.get<PublicUserResponse>('/auth/me'),
   forgotPassword: (email: string) =>

@@ -12,7 +12,14 @@ export enum UserRole {
 export enum UserStatus {
   ACTIVE = 'active',
   DISABLED = 'disabled',
+  /** Created by an admin; awaiting first-login password setup. */
   INVITED = 'invited',
+  /**
+   * Self-registered and not yet cleared to sign in. `emailVerifiedAt`
+   * distinguishes the two halves of this state: null means the address is still
+   * unconfirmed, set means the lab has yet to approve the account.
+   */
+  PENDING = 'pending',
 }
 
 /** Categories of file attached to a case. */

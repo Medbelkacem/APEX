@@ -72,6 +72,96 @@ export const emailTemplates = {
     };
   },
 
+  verifyEmail(params: { firstName: string; verifyUrl: string }): RenderedEmail {
+    return {
+      subject: `Confirm your email address`,
+      html: layout(
+        `Nearly there, ${escapeHtml(params.firstName)}`,
+        `<p>Thanks for registering with ${BRAND}. Confirm this address to complete your application:</p>
+         <p style="margin:24px 0;">${button('Confirm email address', params.verifyUrl)}</p>
+         <p>Once confirmed, our team reviews the application before your account is opened. We will email you when it is ready.</p>
+         <p style="color:#64748b;font-size:13px;">This link expires in 24 hours. If you did not register, you can ignore this email.</p>`,
+      ),
+      text:
+        `Thanks for registering with ${BRAND}, ${params.firstName}. ` +
+        `Confirm your address: ${params.verifyUrl} (expires in 24 hours). ` +
+        `Our team then reviews the application before your account is opened.`,
+    };
+  },
+
+  /**
+   * Sent when someone registers with an address that already has an account.
+   * Registration answers identically either way, so this mail is what makes the
+   * situation recoverable for the real owner without confirming to a stranger
+   * that the address is registered.
+   */
+  registrationAttempted(params: { firstName: string; loginUrl: string; resetUrl: string }): RenderedEmail {
+    return {
+      subject: `Someone tried to register with your email address`,
+      html: layout(
+        'An account already exists',
+        `<p>Hi ${escapeHtml(params.firstName)}, someone just tried to register for ${BRAND} using this address. You already have an account, so no new one was created and nothing has changed.</p>
+         <p style="margin:24px 0;">${button('Sign in', params.loginUrl)}</p>
+         <p>If that was you and you have forgotten your password, you can <a href="${params.resetUrl}">reset it here</a>. If it was not you, no action is needed.</p>`,
+      ),
+      text:
+        `Someone tried to register for ${BRAND} with your address. You already have an account and nothing has changed. ` +
+        `Sign in: ${params.loginUrl} — forgotten your password? ${params.resetUrl}`,
+    };
+  },
+
+  accountApproved(params: { firstName: string; loginUrl: string }): RenderedEmail {
+    return {
+      subject: `Your ${BRAND} account is ready`,
+      html: layout(
+        `Welcome aboard, ${escapeHtml(params.firstName)}`,
+        `<p>Your application has been approved and your account is now open. You can sign in and start submitting cases.</p>
+         <p style="margin:24px 0;">${button('Sign in', params.loginUrl)}</p>`,
+      ),
+      text: `Your ${BRAND} account has been approved. Sign in: ${params.loginUrl}`,
+    };
+  },
+
+  accountRejected(params: { firstName: string; reason?: string | null }): RenderedEmail {
+    return {
+      subject: `About your ${BRAND} application`,
+      html: layout(
+        'Application not approved',
+        `<p>Hi ${escapeHtml(params.firstName)}, thank you for your interest in ${BRAND}. We are not able to open an account at this time.</p>
+         ${params.reason ? `<p>${escapeHtml(params.reason)}</p>` : ''}
+         <p>If you believe this is a mistake, please get in touch with the laboratory directly.</p>`,
+      ),
+      text:
+        `Thank you for your interest in ${BRAND}. We are not able to open an account at this time.` +
+        (params.reason ? ` ${params.reason}` : ''),
+    };
+  },
+
+  /** Tells the lab a registration is sitting in the approval queue. */
+  registrationPendingReview(params: {
+    dentistName: string;
+    email: string;
+    clinicName?: string | null;
+    reviewUrl: string;
+  }): RenderedEmail {
+    return {
+      subject: `New dentist registration awaiting review`,
+      html: layout(
+        'A registration needs your review',
+        `<p><strong>${escapeHtml(params.dentistName)}</strong> has registered and confirmed their email address.</p>
+         <ul>
+           <li>Email: ${escapeHtml(params.email)}</li>
+           ${params.clinicName ? `<li>Clinic: ${escapeHtml(params.clinicName)}</li>` : ''}
+         </ul>
+         <p>They cannot sign in or submit cases until the account is approved.</p>
+         <p style="margin:24px 0;">${button('Review registration', params.reviewUrl)}</p>`,
+      ),
+      text:
+        `${params.dentistName} (${params.email}) has registered and confirmed their email. ` +
+        `They cannot sign in until approved. Review: ${params.reviewUrl}`,
+    };
+  },
+
   passwordReset(params: { firstName: string; resetUrl: string }): RenderedEmail {
     return {
       subject: `Reset your ${BRAND} password`,

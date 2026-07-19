@@ -54,6 +54,27 @@ export class User extends SoftDeleteEntity {
   @Column({ type: 'timestamptz', nullable: true, select: false })
   passwordResetExpiresAt: Date | null;
 
+  // ── Email verification (self-registration only) ──
+  /**
+   * When the account holder proved they control the address. Null on a
+   * `pending` account means "unconfirmed"; set means "waiting for the lab to
+   * approve". Invited accounts are stamped when they complete first-login
+   * setup, since opening an emailed link is the same proof of delivery.
+   *
+   * Accounts that predate this column keep a null, which asserts nothing either
+   * way — only `pending` accounts are gated on it.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  emailVerifiedAt: Date | null;
+
+  @Exclude()
+  @Column({ type: 'varchar', length: 128, nullable: true, select: false })
+  emailVerificationTokenHash: string | null;
+
+  @Exclude()
+  @Column({ type: 'timestamptz', nullable: true, select: false })
+  emailVerificationExpiresAt: Date | null;
+
   @OneToOne(() => Dentist, (dentist) => dentist.user)
   dentist?: Dentist;
 

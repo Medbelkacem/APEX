@@ -13,7 +13,12 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
 import { DentistsService } from './dentists.service';
-import { CreateDentistDto, ListDentistsDto, UpdateDentistDto } from './dentists.dto';
+import {
+  CreateDentistDto,
+  ListDentistsDto,
+  RejectDentistDto,
+  UpdateDentistDto,
+} from './dentists.dto';
 import { Query } from '@nestjs/common';
 
 /** Admin dentist management. */
@@ -81,5 +86,39 @@ export class DentistsController {
   async resetPassword(@Param('id', ParseUUIDPipe) id: string) {
     await this.dentists.sendPasswordReset(id);
     return { success: true };
+  }
+
+  @Post(':id/approve')
+  @ApiOperation({ summary: 'Approve a pending self-registration, opening the account.' })
+  async approve(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    const dentist = await this.dentists.approve(id);
+    await this.audit.record({
+      userId: actor.id,
+      action: 'dentist.approved',
+      entityType: 'dentist',
+      entityId: id,
+      metadata: { email: dentist.user?.email },
+    });
+    return dentist;
+  }
+
+  @Post(':id/reject')
+  @ApiOperation({ summary: 'Decline a pending self-registration.' })
+  async reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectDentistDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    const dentist = await this.dentists.reject(id, dto.reason);
+    await this.audit.record({
+      userId: actor.id,
+      action: 'dentist.rejected',
+      entityType: 'dentist',
+      entityId: id,
+      // Who turned an applicant away, and why, is exactly the kind of decision
+      // someone will need to reconstruct later.
+      metadata: { email: dentist.user?.email, reason: dto.reason ?? null },
+    });
+    return dentist;
   }
 }

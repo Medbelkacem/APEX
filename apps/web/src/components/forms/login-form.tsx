@@ -75,6 +75,13 @@ export function LoginForm() {
       <Button type="submit" className="w-full" disabled={isSubmitting}>
         {isSubmitting ? 'Signing in…' : 'Sign in'}
       </Button>
+
+      <p className="text-sm text-slate-500">
+        New to the lab?{' '}
+        <Link href="/register" className="text-brand-700 hover:underline">
+          Register your practice
+        </Link>
+      </p>
     </form>
   );
 }

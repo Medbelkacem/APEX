@@ -13,7 +13,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { useApi } from '@/lib/hooks/use-api';
 import { dentistsApi } from '@/lib/api/admin';
 import { formatDate } from '@/lib/utils/format';
-import { USER_STATUS_TONES } from '@/lib/utils/user-status';
+import { USER_STATUS_TONES, userStatusLabel } from '@/lib/utils/user-status';
 
 interface DentistListQuery {
   status?: string;
@@ -85,6 +85,46 @@ export default function AdminDentistsPage() {
       setCreateError(err instanceof Error ? err.message : 'Could not create the dentist');
     } finally {
       setCreating(false);
+    }
+  }
+
+  const [reviewing, setReviewing] = useState<string>();
+
+  async function approve(id: string) {
+    setReviewing(id);
+    setNotice(undefined);
+    setCreateError(undefined);
+    try {
+      const dentist = await dentistsApi.approve(id);
+      setNotice(`${dentist.user.email} can now sign in — we've emailed them.`);
+      dentists.refresh();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Could not approve this registration');
+    } finally {
+      setReviewing(undefined);
+    }
+  }
+
+  async function reject(id: string) {
+    // Declining sends the applicant an email, so it is worth a deliberate
+    // confirmation rather than a single misplaced click.
+    const reason = window.prompt(
+      'Decline this registration? You can add a short reason for the applicant (optional).',
+      '',
+    );
+    if (reason === null) return;
+
+    setReviewing(id);
+    setNotice(undefined);
+    setCreateError(undefined);
+    try {
+      const dentist = await dentistsApi.reject(id, reason.trim() || null);
+      setNotice(`Registration for ${dentist.user.email} was declined.`);
+      dentists.refresh();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Could not decline this registration');
+    } finally {
+      setReviewing(undefined);
     }
   }
 
@@ -239,6 +279,7 @@ export default function AdminDentistsPage() {
               onChange={(e) => patch({ status: e.target.value })}
             >
               <option value="">All statuses</option>
+              <option value="pending">Awaiting approval</option>
               <option value="active">Active</option>
               <option value="disabled">Disabled</option>
               <option value="invited">Invited</option>
@@ -272,6 +313,7 @@ export default function AdminDentistsPage() {
                   <Th>Tier</Th>
                   <Th>Status</Th>
                   <Th>Added</Th>
+                  <Th>Review</Th>
                 </tr>
               </thead>
               <tbody>
@@ -289,9 +331,37 @@ export default function AdminDentistsPage() {
                     <Td>{row.clinicName ?? '—'}</Td>
                     <Td>{row.tier ?? '—'}</Td>
                     <Td>
-                      <Badge tone={USER_STATUS_TONES[row.user.status]}>{row.user.status}</Badge>
+                      <Badge tone={USER_STATUS_TONES[row.user.status]}>
+                        {userStatusLabel(row.user.status, Boolean(row.user.emailVerifiedAt))}
+                      </Badge>
                     </Td>
                     <Td>{formatDate(row.createdAt)}</Td>
+                    <Td>
+                      {row.user.status === 'pending' && row.user.emailVerifiedAt ? (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="secondary"
+                            disabled={reviewing === row.id}
+                            onClick={() => void approve(row.id)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            disabled={reviewing === row.id}
+                            onClick={() => void reject(row.id)}
+                          >
+                            Decline
+                          </Button>
+                        </div>
+                      ) : row.user.status === 'pending' ? (
+                        // Nothing for an admin to do yet — the applicant still
+                        // has to open the link before there is anything to trust.
+                        <span className="text-sm text-slate-400">Waiting on applicant</span>
+                      ) : (
+                        <span className="text-sm text-slate-400">—</span>
+                      )}
+                    </Td>
                   </Tr>
                 ))}
               </tbody>
