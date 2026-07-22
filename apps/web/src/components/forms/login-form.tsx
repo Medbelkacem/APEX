@@ -18,6 +18,18 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+/**
+ * The `next` path the middleware appended when it bounced an expired session to
+ * /login — but only when it is a safe same-origin, absolute path. A
+ * protocol-relative ("//evil.example") or absolute URL is rejected so a crafted
+ * login link cannot turn into an open redirect.
+ */
+function safeNextPath(): string | null {
+  if (typeof window === 'undefined') return null;
+  const next = new URLSearchParams(window.location.search).get('next');
+  return next && next.startsWith('/') && !next.startsWith('//') ? next : null;
+}
+
 export function LoginForm() {
   const router = useRouter();
   const {
@@ -30,9 +42,10 @@ export function LoginForm() {
   async function onSubmit(values: FormValues) {
     try {
       const { user } = await authApi.login(values);
-      const dest =
-        user.role === UserRole.DENTIST ? '/dashboard' : '/admin/dashboard';
-      router.push(dest);
+      const home = user.role === UserRole.DENTIST ? '/dashboard' : '/admin/dashboard';
+      // Honour the deep link the middleware preserved, falling back to the
+      // role's home when there is none.
+      router.push(safeNextPath() ?? home);
       router.refresh();
     } catch (err) {
       const message =

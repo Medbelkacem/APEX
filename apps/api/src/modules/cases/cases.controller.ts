@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -34,9 +35,32 @@ import {
 /** Maximum attachments accepted in a single multipart request. */
 const MAX_FILES_PER_REQUEST = 20;
 
+/**
+ * Hard per-part byte ceiling handed to multer, matching MAX_UPLOAD_MB's default
+ * so multer aborts an oversized part before buffering it into memory. The
+ * per-category caps (image/document) are still enforced in validateUpload; this
+ * is only the coarse guard that keeps a 20×huge-file POST from exhausting RAM.
+ */
+const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_MB ?? 100) * 1024 * 1024;
+
+/**
+ * Build a safe Content-Disposition value. The ASCII fallback drops control
+ * characters — which would otherwise make `res.setHeader` throw and 500 the
+ * download — along with quotes and backslashes; `filename*` carries the real,
+ * possibly non-ASCII name percent-encoded per RFC 5987/6266 for clients that
+ * understand it.
+ */
+function contentDisposition(name: string): string {
+  const asciiFallback =
+    name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '').trim() || 'download';
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+}
+
 @ApiTags('cases')
 @Controller('cases')
 export class CasesController {
+  private readonly logger = new Logger(CasesController.name);
+
   constructor(
     private readonly cases: CasesService,
     private readonly caseFiles: CaseFilesService,
@@ -146,7 +170,11 @@ export class CasesController {
   }
 
   @Post(':id/files')
-  @UseInterceptors(FilesInterceptor('files', MAX_FILES_PER_REQUEST))
+  @UseInterceptors(
+    FilesInterceptor('files', MAX_FILES_PER_REQUEST, {
+      limits: { fileSize: MAX_UPLOAD_BYTES, files: MAX_FILES_PER_REQUEST },
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -185,11 +213,21 @@ export class CasesController {
     @Res() res: Response,
   ): Promise<void> {
     const { file, stream } = await this.caseFiles.openForDownload(id, fileId, user);
-    // Quote-escape the filename so a comma or quote can't break the header.
-    const safeName = file.originalFilename.replace(/"/g, '');
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Length', String(file.sizeBytes));
-    res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+    res.setHeader('Content-Disposition', contentDisposition(file.originalFilename));
+
+    // A read error after the existence check — the blob deleted mid-stream, an
+    // I/O fault — would otherwise reach an unhandled 'error' on the source and
+    // take the whole process down. And a client that aborts the download leaves
+    // the file descriptor open unless the source is destroyed with the response.
+    stream.on('error', (err) => {
+      this.logger.error(`Streaming file ${fileId} for case ${id}: ${String(err)}`);
+      if (!res.headersSent) res.status(500);
+      res.destroy();
+    });
+    res.on('close', () => stream.destroy());
+
     stream.pipe(res);
   }
 

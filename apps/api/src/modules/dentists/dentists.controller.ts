@@ -76,9 +76,16 @@ export class DentistsController {
   }
 
   @Post(':id/enable')
-  @ApiOperation({ summary: 'Re-enable a dentist account.' })
-  enable(@Param('id', ParseUUIDPipe) id: string) {
-    return this.dentists.setStatus(id, UserStatus.ACTIVE);
+  @ApiOperation({ summary: 'Re-enable a disabled dentist account.' })
+  async enable(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    const dentist = await this.dentists.enable(id);
+    await this.audit.record({
+      userId: actor.id,
+      action: 'dentist.enabled',
+      entityType: 'dentist',
+      entityId: id,
+    });
+    return dentist;
   }
 
   @Post(':id/reset-password')

@@ -1,4 +1,4 @@
-import { API_BASE, api } from './client';
+import { API_BASE, api, csrfToken } from './client';
 import type {
   CaseFileWithUploader,
   CaseSummary,
@@ -90,6 +90,11 @@ export function uploadCaseFiles(
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_BASE}/api/cases/${caseId}/files`);
     xhr.withCredentials = true;
+    // Mirror the CSRF double-submit that the JSON `request()` wrapper performs:
+    // the guard rejects any state-changing call that carries the csrf cookie
+    // without echoing it in this header, so multipart uploads need it too.
+    const csrf = csrfToken();
+    if (csrf) xhr.setRequestHeader('X-CSRF-Token', csrf);
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable || !options.onProgress) return;

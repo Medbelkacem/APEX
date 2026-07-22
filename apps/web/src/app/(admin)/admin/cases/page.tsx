@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { StatusBadge } from '@/components/ui/badge';
 import { Input, Label } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
@@ -14,11 +15,14 @@ import { catalogApi } from '@/lib/api/catalog';
 import { dentistsApi } from '@/lib/api/admin';
 import { formatDate } from '@/lib/utils/format';
 
-export default function AdminCasesPage() {
+function AdminCasesView() {
+  const params = useSearchParams();
   const [filters, setFilters] = useState<CaseListQuery>({
     status: '',
     caseTypeId: '',
-    dentistId: '',
+    // Seeded from the URL so "All cases" links from a dentist's page land
+    // pre-filtered to that dentist.
+    dentistId: params.get('dentistId') ?? '',
     search: '',
     dateFrom: '',
     dateTo: '',
@@ -208,5 +212,14 @@ export default function AdminCasesPage() {
         )}
       </AsyncSection>
     </div>
+  );
+}
+
+export default function AdminCasesPage() {
+  // useSearchParams requires a Suspense boundary during prerender.
+  return (
+    <Suspense>
+      <AdminCasesView />
+    </Suspense>
   );
 }

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { UserRole, UserStatus } from '@dental/shared-types';
 import { Dentist, User } from '../../database/entities';
 import { UsersService } from '../users/users.service';
@@ -24,6 +24,14 @@ import {
  * expired one strands a registration nobody is chasing.
  */
 const EMAIL_VERIFICATION_TTL_SECONDS = 24 * 3600;
+
+/** Postgres unique-constraint violation — a duplicate key insert. */
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err instanceof QueryFailedError &&
+    (err.driverError as { code?: string } | undefined)?.code === '23505'
+  );
+}
 
 @Injectable()
 export class DentistsService {
@@ -93,32 +101,43 @@ export class DentistsService {
       return;
     }
 
-    const dentist = await this.dataSource.transaction(async (manager) => {
-      const userRepo = manager.getRepository(User);
-      const user = await userRepo.save(
-        userRepo.create({
-          email,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          phone: dto.phone ?? null,
-          passwordHash: await this.users.hashPassword(dto.password),
-          role: UserRole.DENTIST,
-          // Pending with no verification stamp: unconfirmed address.
-          status: UserStatus.PENDING,
-          emailVerifiedAt: null,
-        }),
-      );
-      const dentistRepo = manager.getRepository(Dentist);
-      const saved = await dentistRepo.save(
-        dentistRepo.create({
-          userId: user.id,
-          clinicName: dto.clinicName ?? null,
-          clinicAddress: dto.clinicAddress ?? null,
-        }),
-      );
-      saved.user = user;
-      return saved;
-    });
+    let dentist: Dentist;
+    try {
+      dentist = await this.dataSource.transaction(async (manager) => {
+        const userRepo = manager.getRepository(User);
+        const user = await userRepo.save(
+          userRepo.create({
+            email,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            phone: dto.phone ?? null,
+            passwordHash: await this.users.hashPassword(dto.password),
+            role: UserRole.DENTIST,
+            // Pending with no verification stamp: unconfirmed address.
+            status: UserStatus.PENDING,
+            emailVerifiedAt: null,
+          }),
+        );
+        const dentistRepo = manager.getRepository(Dentist);
+        const saved = await dentistRepo.save(
+          dentistRepo.create({
+            userId: user.id,
+            clinicName: dto.clinicName ?? null,
+            clinicAddress: dto.clinicAddress ?? null,
+          }),
+        );
+        saved.user = user;
+        return saved;
+      });
+    } catch (err) {
+      // Two registrations for the same new address raced past the existence
+      // check above and both reached the insert; the unique index rejects the
+      // loser. Answer exactly as the "already registered" path so the outcome
+      // is identical either way and the race can never surface as a 500 (which
+      // would itself be a membership oracle).
+      if (isUniqueViolation(err)) return;
+      throw err;
+    }
 
     const token = await this.users.issueEmailVerificationToken(
       dentist.userId,
@@ -265,6 +284,28 @@ export class DentistsService {
   async setStatus(id: string, status: UserStatus): Promise<Dentist> {
     const dentist = await this.findByIdOrFail(id);
     await this.users.setStatus(dentist.userId, status);
+    return this.findByIdOrFail(id);
+  }
+
+  /**
+   * Re-enable a dentist account (the disable → active path).
+   *
+   * Refuses a PENDING self-registration: those must go through `approve()`,
+   * which is the only transition that checks the applicant confirmed their
+   * email. Flipping a pending, email-unverified account straight to active
+   * here would open a login for an address nobody has shown they can receive
+   * mail at — the exact bypass the approval gate exists to prevent.
+   */
+  async enable(id: string): Promise<Dentist> {
+    const dentist = await this.findByIdOrFail(id);
+    const user = dentist.user;
+    if (!user) throw new NotFoundException('Dentist has no linked account');
+    if (user.status === UserStatus.PENDING) {
+      throw new ConflictException(
+        'This account is awaiting approval — approve it instead of enabling it',
+      );
+    }
+    await this.users.setStatus(user.id, UserStatus.ACTIVE);
     return this.findByIdOrFail(id);
   }
 

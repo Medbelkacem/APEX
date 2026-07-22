@@ -120,9 +120,19 @@ export class StatisticsController {
     };
   }
 
-  /** Quote fields containing a delimiter, quote, or newline (RFC 4180). */
+  /**
+   * Render one field for CSV output: neutralise spreadsheet formula injection,
+   * then quote per RFC 4180 where needed.
+   *
+   * A cell a spreadsheet would evaluate as a formula — one starting with =, +,
+   * -, @, tab or CR — is prefixed with a single quote so Excel/Sheets shows it
+   * as text. Dentist and clinic names reach these exports straight from
+   * self-service registration, so `=HYPERLINK(...)` in a name must not run when
+   * an admin opens the file.
+   */
   private escapeCsv(value: string): string {
-    if (/[",\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-    return value;
+    const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+    if (/[",\r\n]/.test(guarded)) return `"${guarded.replace(/"/g, '""')}"`;
+    return guarded;
   }
 }

@@ -1,7 +1,8 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
@@ -18,10 +19,13 @@ import { INVOICE_TONES } from '@/lib/utils/invoice-status';
 
 const EMPTY_BATCH = { dentistId: '', dateFrom: '', dateTo: '' };
 
-export default function AdminInvoicesPage() {
+function AdminInvoicesView() {
+  const params = useSearchParams();
   const [filters, setFilters] = useState<InvoiceListQuery>({
     status: '',
-    dentistId: '',
+    // Seeded from the URL so "All invoices" links from a dentist's page land
+    // pre-filtered to that dentist.
+    dentistId: params.get('dentistId') ?? '',
     search: '',
     dateFrom: '',
     dateTo: '',
@@ -383,5 +387,14 @@ export default function AdminInvoicesPage() {
         )}
       </AsyncSection>
     </div>
+  );
+}
+
+export default function AdminInvoicesPage() {
+  // useSearchParams requires a Suspense boundary during prerender.
+  return (
+    <Suspense>
+      <AdminInvoicesView />
+    </Suspense>
   );
 }

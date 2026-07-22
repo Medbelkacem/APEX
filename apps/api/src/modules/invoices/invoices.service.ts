@@ -246,6 +246,17 @@ export class InvoicesService {
       }),
     );
 
+    // One invoice carries one currency; its subtotal is a plain sum of the line
+    // totals. If the pending cases price in different currencies (rules can set
+    // their own), summing them would conflate the amounts under whichever
+    // currency happened to come first — so refuse rather than misstate a total.
+    const currencies = new Set(lines.map((line) => line.currency));
+    if (currencies.size > 1) {
+      throw new BadRequestException(
+        'These cases price in more than one currency — invoice them separately, one currency per batch',
+      );
+    }
+
     const invoice = await this.createInvoice({
       dentistId: dto.dentistId,
       caseId: null,
@@ -367,6 +378,14 @@ export class InvoicesService {
     // a refunded invoice back into a paid one.
     if (invoice.status === InvoiceStatus.REFUNDED) {
       throw new BadRequestException('A refunded invoice cannot be marked paid');
+    }
+    // Only an issued invoice can be settled. A draft has never been sent to the
+    // dentist, so marking it paid — rendering a PAID stamp and emailing a
+    // receipt — would skip the issue step and strand an invoice that can no
+    // longer be issued (issue() requires DRAFT). The Stripe path already
+    // enforces this precondition; the manual admin path did not.
+    if (invoice.status !== InvoiceStatus.ISSUED) {
+      throw new BadRequestException('Only an issued invoice can be marked paid');
     }
 
     await this.invoices.update(id, {

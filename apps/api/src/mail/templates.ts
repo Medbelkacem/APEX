@@ -63,7 +63,7 @@ export const emailTemplates = {
     return {
       subject: `You've been invited to ${BRAND}`,
       html: layout(
-        `Welcome, ${params.firstName}`,
+        `Welcome, ${escapeHtml(params.firstName)}`,
         `<p>An account has been created for you on the ${BRAND} portal. Set your password to get started:</p>
          <p style="margin:24px 0;">${button('Set your password', params.setupUrl)}</p>
          <p style="color:#64748b;font-size:13px;">This link expires in 1 hour. If you did not expect this, you can ignore this email.</p>`,
@@ -167,7 +167,7 @@ export const emailTemplates = {
       subject: `Reset your ${BRAND} password`,
       html: layout(
         'Password reset requested',
-        `<p>Hi ${params.firstName}, we received a request to reset your password.</p>
+        `<p>Hi ${escapeHtml(params.firstName)}, we received a request to reset your password.</p>
          <p style="margin:24px 0;">${button('Reset password', params.resetUrl)}</p>
          <p style="color:#64748b;font-size:13px;">This link expires in 1 hour. If you didn't request this, no action is needed.</p>`,
       ),

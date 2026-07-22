@@ -62,20 +62,28 @@ export class CaseFilesService {
       throw new ForbiddenException('Only laboratory staff can attach lab output files');
     }
 
+    // Validate every file up front, before a single byte is written. Validating
+    // and saving in one pass meant a bad file part-way through a batch left the
+    // files before it already stored and recorded, while the request still
+    // failed — so a re-upload duplicated them, with no audit trail for either.
+    const validated = incoming.map((file) => ({
+      file,
+      spec: validateUpload(file.originalname, file.buffer, this.limits),
+    }));
+
     const saved: CaseFile[] = [];
-    for (const file of incoming) {
-      const validated = validateUpload(file.originalname, file.buffer, this.limits);
-      const { path } = this.storage.buildCaseFilePath(entity.id, validated.extension);
+    for (const { file, spec } of validated) {
+      const { path } = this.storage.buildCaseFilePath(entity.id, spec.extension);
       await this.storage.save(path, file.buffer);
 
       saved.push(
         await this.files.save(
           this.files.create({
             caseId: entity.id,
-            fileType: fileTypeHint ?? validated.fileType,
+            fileType: fileTypeHint ?? spec.fileType,
             originalFilename: file.originalname,
             storedPath: path,
-            mimeType: validated.mimeType,
+            mimeType: spec.mimeType,
             sizeBytes: file.buffer.length,
             uploadedByUserId: user.id,
           }),

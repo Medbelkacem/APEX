@@ -49,32 +49,42 @@ export class AuthService {
   /** Verify email + password, enforcing lockout and account status. */
   async validateCredentials(email: string, password: string): Promise<User> {
     const user = await this.users.findByEmailWithSecret(email);
-    // Uniform failure to avoid leaking which accounts exist.
-    if (!user || !user.passwordHash) {
+
+    // Lockout is decided before the password so a locked account is refused
+    // whatever is submitted. A lock only ever exists on a real account that has
+    // already failed several times, so this branch reveals nothing new.
+    if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      throw new ForbiddenException('Account temporarily locked. Try again later.');
+    }
+
+    // Always spend a full verification — against a decoy hash when the account
+    // is missing or has no password — so neither the response nor its timing
+    // distinguishes a registered address from an unknown one for a caller who
+    // cannot supply the password. Account *state* (disabled, pending, …) is
+    // disclosed only once the password is proven, never before: the previous
+    // ordering answered "is this address registered, and in what state?" to an
+    // anonymous probe that never had to hold the password.
+    const usableHash = user?.passwordHash ?? (await this.decoyHash());
+    const passwordOk = await this.passwords.verify(usableHash, password);
+
+    if (!user || !user.passwordHash || !passwordOk) {
+      // Count the attempt only against a real, password-bearing account.
+      if (user?.passwordHash) await this.users.registerFailedLogin(user);
       throw new UnauthorizedException('Invalid email or password');
     }
+
     if (user.status === UserStatus.DISABLED) {
       throw new ForbiddenException('This account has been disabled');
     }
     // A self-registration that has not been approved yet. The two halves of
     // PENDING need different advice — chase your inbox, or wait for us — and
-    // saying so leaks nothing: whoever is holding the right password here is
-    // the person who registered.
+    // saying so is safe here because the caller has just proven the password.
     if (user.status === UserStatus.PENDING) {
       throw new ForbiddenException(
         user.emailVerifiedAt
           ? 'Your registration is awaiting approval. We will email you once your account is open.'
           : 'Please confirm your email address first — check your inbox for the verification link.',
       );
-    }
-    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
-      throw new ForbiddenException('Account temporarily locked. Try again later.');
-    }
-
-    const ok = await this.passwords.verify(user.passwordHash, password);
-    if (!ok) {
-      await this.users.registerFailedLogin(user);
-      throw new UnauthorizedException('Invalid email or password');
     }
 
     // A successful login is the only point at which the plaintext exists, and
@@ -86,6 +96,20 @@ export class AuthService {
 
     await this.users.recordSuccessfulLogin(user.id);
     return user;
+  }
+
+  /**
+   * A valid current-format hash that no real password matches, computed once
+   * and reused. Verifying an absent account against it makes a login for an
+   * unknown email do the same argon2 work as one for a real account, so the
+   * response time cannot be used to enumerate which addresses are registered.
+   */
+  private decoyHashPromise: Promise<string> | null = null;
+  private decoyHash(): Promise<string> {
+    if (!this.decoyHashPromise) {
+      this.decoyHashPromise = this.passwords.hash('no-account::decoy::do-not-match');
+    }
+    return this.decoyHashPromise;
   }
 
   /**

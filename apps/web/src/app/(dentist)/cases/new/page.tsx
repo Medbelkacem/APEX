@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
@@ -50,6 +50,9 @@ export default function NewCasePage() {
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string>();
   const [created, setCreated] = useState<{ id: string; reference: string } | null>(null);
+  // Remembers a case that was created but whose file upload then failed, so a
+  // retry re-attempts only the upload instead of filing a second case.
+  const createdCaseRef = useRef<{ id: string; reference: string } | null>(null);
 
   const set = (patch: Partial<Draft>) => setDraft((prev) => ({ ...prev, ...patch }));
 
@@ -64,7 +67,12 @@ export default function NewCasePage() {
       if (draft.deadline) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        if (new Date(draft.deadline) < today) next.deadline = 'The deadline cannot be in the past';
+        // Parse the YYYY-MM-DD value as local midnight, not UTC — `new Date(str)`
+        // reads a bare date as UTC, which for negative offsets makes today's date
+        // compare as earlier than local midnight and wrongly reads as "in the past".
+        if (new Date(`${draft.deadline}T00:00:00`) < today) {
+          next.deadline = 'The deadline cannot be in the past';
+        }
       }
     }
     setErrors(next);
@@ -84,15 +92,21 @@ export default function NewCasePage() {
     setSubmitting(true);
     setSubmitError(undefined);
     try {
-      const entity = await casesApi.create({
-        caseTypeId: draft.caseTypeId,
-        patientReference: draft.patientReference.trim(),
-        toothRegion: draft.toothRegion.trim() || null,
-        material: draft.material.trim() || null,
-        shade: draft.shade.trim() || null,
-        deadline: draft.deadline || null,
-        clinicalNotes: draft.clinicalNotes.trim() || null,
-      });
+      // Create the case at most once. If an earlier attempt created it but the
+      // upload failed, reuse it rather than submitting a duplicate case.
+      if (!createdCaseRef.current) {
+        const entity = await casesApi.create({
+          caseTypeId: draft.caseTypeId,
+          patientReference: draft.patientReference.trim(),
+          toothRegion: draft.toothRegion.trim() || null,
+          material: draft.material.trim() || null,
+          shade: draft.shade.trim() || null,
+          deadline: draft.deadline || null,
+          clinicalNotes: draft.clinicalNotes.trim() || null,
+        });
+        createdCaseRef.current = { id: entity.id, reference: entity.reference };
+      }
+      const entity = createdCaseRef.current;
 
       if (files.length) {
         setUploadPercent(0);
@@ -100,7 +114,7 @@ export default function NewCasePage() {
           onProgress: (p) => setUploadPercent(p.percent),
         });
       }
-      setCreated({ id: entity.id, reference: entity.reference });
+      setCreated(entity);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Could not submit the case');
     } finally {
@@ -137,6 +151,7 @@ export default function NewCasePage() {
               variant="ghost"
               onClick={() => {
                 setCreated(null);
+                createdCaseRef.current = null;
                 setDraft(EMPTY);
                 setFiles([]);
                 setStep(0);

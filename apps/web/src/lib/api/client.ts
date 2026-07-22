@@ -58,7 +58,7 @@ function refreshSession(): Promise<boolean> {
  * browser would attach the cookie for the attacker, but same-origin policy
  * stops their page from reading it to build the header.
  */
-function csrfToken(): string | undefined {
+export function csrfToken(): string | undefined {
   if (typeof document === 'undefined') return undefined;
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
   return match ? decodeURIComponent(match[1]) : undefined;

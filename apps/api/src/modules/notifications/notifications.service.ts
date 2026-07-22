@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -32,6 +32,8 @@ export interface NotifyInput {
  */
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     @InjectRepository(NotificationEntity)
     private readonly repo: Repository<NotificationEntity>,
@@ -53,23 +55,34 @@ export class NotificationsService {
       }),
     );
 
+    let emailFailed = false;
     if (input.email) {
       const user = await this.users.findOne({ where: { id: input.userId } });
       if (user) {
-        await this.mail.enqueue({
-          to: user.email,
-          subject: input.subject,
-          html: input.email.html,
-          text: input.email.text,
-        });
+        try {
+          await this.mail.enqueue({
+            to: user.email,
+            subject: input.subject,
+            html: input.email.html,
+            text: input.email.text,
+          });
+        } catch (err) {
+          // The in-app record is already committed, and this notification is a
+          // side effect of some larger operation that has itself committed
+          // (a case submitted, an invoice issued). A mail-queue outage — Redis
+          // unreachable — must not bubble up and turn that successful write
+          // into a 500; record the email as failed and move on.
+          emailFailed = true;
+          this.logger.error(
+            `Could not enqueue email for notification ${record.id}: ${String(err)}`,
+          );
+        }
       }
     }
 
-    await this.repo.update(record.id, {
-      status: NotificationStatus.SENT,
-      sentAt: new Date(),
-    });
-    record.status = NotificationStatus.SENT;
+    const status = emailFailed ? NotificationStatus.FAILED : NotificationStatus.SENT;
+    await this.repo.update(record.id, { status, sentAt: emailFailed ? null : new Date() });
+    record.status = status;
     return record;
   }
 
