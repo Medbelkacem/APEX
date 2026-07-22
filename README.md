@@ -187,15 +187,3 @@ Workflow-status colours are a **validated categorical palette** — every adjace
 pair clears the colour-blind and normal-vision separation floors on a light
 surface. Re-validate before changing them; statuses always render with their
 label so identity never rests on colour alone.
-
-## Development milestones
-
-The build follows the DRS milestone plan:
-
-1. **Week 1 — Foundation:** scaffolding, auth, RBAC, marketing site. _(done)_
-2. **Week 2 — Dentist portal:** case submission, file upload, tracking, dashboard. _(done)_
-3. **Week 3 — Admin dashboard & workflow:** dentist/case/pricing/workflow management, stats. _(done)_
-4. **Week 4 — Invoicing, statements, integrations & hardening.** _(done)_
-5. **Week 5 (optional) — Polish, performance, launch.**
-
-See `docs/` and the deliverables checklist in the DRS.
