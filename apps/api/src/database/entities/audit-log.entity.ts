@@ -1,26 +1,31 @@
-import { Column, Entity, Index } from 'typeorm';
-import { BaseEntity } from './base.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument, Schema as MongooseSchema } from 'mongoose';
+import { BaseDocument, baseSchemaOptions } from '../base.schema';
 
 /** Immutable audit trail of sensitive admin actions. */
-@Entity('audit_logs')
-@Index(['entityType', 'entityId'])
-export class AuditLog extends BaseEntity {
-  @Column({ type: 'uuid', nullable: true })
+@Schema(baseSchemaOptions('audit_logs'))
+export class AuditLog extends BaseDocument {
+  @Prop({ type: String, default: null })
   userId: string | null;
 
   /** e.g. case.status_changed, dentist.disabled, pricing.updated. */
-  @Column({ type: 'varchar', length: 120 })
+  @Prop({ type: String, required: true })
   action: string;
 
-  @Column({ type: 'varchar', length: 120 })
+  @Prop({ type: String, required: true })
   entityType: string;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Prop({ type: String, default: null })
   entityId: string | null;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Prop({ type: MongooseSchema.Types.Mixed, default: null })
   metadata: Record<string, unknown> | null;
 
-  @Column({ type: 'varchar', length: 64, nullable: true })
+  @Prop({ type: String, default: null })
   ipAddress: string | null;
 }
+
+export type AuditLogDocument = HydratedDocument<AuditLog>;
+export const AuditLogSchema = SchemaFactory.createForClass(AuditLog);
+
+AuditLogSchema.index({ entityType: 1, entityId: 1 });

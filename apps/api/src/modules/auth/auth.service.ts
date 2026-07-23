@@ -291,22 +291,15 @@ export class AuthService {
   }
 
   toPublic(user: User): PublicUser {
-    const {
-      passwordHash: _p,
-      passwordResetTokenHash: _t,
-      passwordResetExpiresAt: _e,
-      failedLoginAttempts: _f,
-      lockedUntil: _l,
-      deletedAt: _d,
-      ...rest
-    } = user;
-    void _p;
-    void _t;
-    void _e;
-    void _f;
-    void _l;
-    void _d;
-    return { ...rest, fullName: `${user.firstName} ${user.lastName}`.trim() } as PublicUser;
+    // The user schema's toObject transform already drops every secret/internal
+    // field (passwordHash, reset tokens, lockout state, deletedAt) and adds the
+    // `id` and `fullName` virtuals — exactly the public projection.
+    const doc = user as User & { toObject?: () => Record<string, unknown> };
+    const plain = doc.toObject ? doc.toObject() : { ...user };
+    return {
+      ...plain,
+      fullName: `${user.firstName} ${user.lastName}`.trim(),
+    } as unknown as PublicUser;
   }
 
   /** Convenience for guards/tests: shape used as the authenticated principal. */

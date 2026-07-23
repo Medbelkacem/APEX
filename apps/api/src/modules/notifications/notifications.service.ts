@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { InjectModel } from '@nestjs/mongoose';
+import { FilterQuery, Model } from 'mongoose';
 import {
   NotificationChannel,
   NotificationStatus,
@@ -35,29 +35,27 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
   constructor(
-    @InjectRepository(NotificationEntity)
-    private readonly repo: Repository<NotificationEntity>,
-    @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectModel(NotificationEntity.name)
+    private readonly repo: Model<NotificationEntity>,
+    @InjectModel(User.name) private readonly users: Model<User>,
     private readonly mail: MailService,
   ) {}
 
   async notify(input: NotifyInput): Promise<NotificationEntity> {
-    const record = await this.repo.save(
-      this.repo.create({
-        userId: input.userId,
-        type: input.type,
-        subject: input.subject,
-        body: input.body,
-        channel: input.email ? NotificationChannel.EMAIL : NotificationChannel.IN_APP,
-        status: NotificationStatus.PENDING,
-        relatedCaseId: input.relatedCaseId ?? null,
-        relatedInvoiceId: input.relatedInvoiceId ?? null,
-      }),
-    );
+    const record = await this.repo.create({
+      userId: input.userId,
+      type: input.type,
+      subject: input.subject,
+      body: input.body,
+      channel: input.email ? NotificationChannel.EMAIL : NotificationChannel.IN_APP,
+      status: NotificationStatus.PENDING,
+      relatedCaseId: input.relatedCaseId ?? null,
+      relatedInvoiceId: input.relatedInvoiceId ?? null,
+    });
 
     let emailFailed = false;
     if (input.email) {
-      const user = await this.users.findOne({ where: { id: input.userId } });
+      const user = await this.users.findById(input.userId).exec();
       if (user) {
         try {
           await this.mail.enqueue({
@@ -80,28 +78,25 @@ export class NotificationsService {
       }
     }
 
-    const status = emailFailed ? NotificationStatus.FAILED : NotificationStatus.SENT;
-    await this.repo.update(record.id, { status, sentAt: emailFailed ? null : new Date() });
-    record.status = status;
+    record.status = emailFailed ? NotificationStatus.FAILED : NotificationStatus.SENT;
+    record.sentAt = emailFailed ? null : new Date();
+    await record.save();
     return record;
   }
 
   /** Fan a notification out to every admin — used for lab-inbox events. */
   async notifyAdmins(input: Omit<NotifyInput, 'userId'>): Promise<void> {
-    const admins = await this.users.find({
-      where: {
-        role: In([UserRole.ADMIN, UserRole.SUPER_ADMIN]),
-        status: UserStatus.ACTIVE,
-      },
-    });
+    const admins = await this.users
+      .find({ role: { $in: [UserRole.ADMIN, UserRole.SUPER_ADMIN] }, status: UserStatus.ACTIVE })
+      .exec();
     await Promise.all(admins.map((admin) => this.notify({ ...input, userId: admin.id })));
   }
 
   /** Broadcast to every active dentist (admin ad-hoc announcement). */
   async broadcastToDentists(input: Omit<NotifyInput, 'userId'>): Promise<{ recipients: number }> {
-    const dentists = await this.users.find({
-      where: { role: UserRole.DENTIST, status: UserStatus.ACTIVE },
-    });
+    const dentists = await this.users
+      .find({ role: UserRole.DENTIST, status: UserStatus.ACTIVE })
+      .exec();
     await Promise.all(dentists.map((d) => this.notify({ ...input, userId: d.id })));
     return { recipients: dentists.length };
   }
@@ -111,40 +106,32 @@ export class NotificationsService {
     query: { unreadOnly?: boolean; page?: number; limit?: number },
   ): Promise<Paginated<NotificationEntity>> {
     const { skip, take, page, limit } = resolvePagination(query.page, query.limit);
-    const qb = this.repo
-      .createQueryBuilder('n')
-      .where('n.userId = :userId', { userId })
-      .orderBy('n.createdAt', 'DESC')
-      .skip(skip)
-      .take(take);
-    if (query.unreadOnly) qb.andWhere('n.readAt IS NULL');
-    const [data, total] = await qb.getManyAndCount();
+    const filter: FilterQuery<NotificationEntity> = { userId };
+    if (query.unreadOnly) filter.readAt = null;
+
+    const [data, total] = await Promise.all([
+      this.repo.find(filter).sort({ createdAt: -1 }).skip(skip).limit(take).exec(),
+      this.repo.countDocuments(filter).exec(),
+    ]);
     return paginate(data, total, page, limit);
   }
 
   countUnread(userId: string): Promise<number> {
-    return this.repo
-      .createQueryBuilder('n')
-      .where('n.userId = :userId AND n.readAt IS NULL', { userId })
-      .getCount();
+    return this.repo.countDocuments({ userId, readAt: null }).exec();
   }
 
   /** Scoped to the caller so one user can never mark another's items read. */
   async markRead(userId: string, id: string): Promise<void> {
-    await this.repo.update(
-      { id, userId },
-      { readAt: new Date(), status: NotificationStatus.READ },
-    );
+    await this.repo
+      .updateOne({ _id: id, userId }, { readAt: new Date(), status: NotificationStatus.READ })
+      .exec();
   }
 
   async markAllRead(userId: string): Promise<{ updated: number }> {
     const result = await this.repo
-      .createQueryBuilder()
-      .update(NotificationEntity)
-      .set({ readAt: new Date(), status: NotificationStatus.READ })
-      .where('userId = :userId AND readAt IS NULL', { userId })
-      .execute();
-    return { updated: result.affected ?? 0 };
+      .updateMany({ userId, readAt: null }, { readAt: new Date(), status: NotificationStatus.READ })
+      .exec();
+    return { updated: result.modifiedCount ?? 0 };
   }
 
   /** Admin-facing delivery log across all users. */
@@ -154,14 +141,19 @@ export class NotificationsService {
     limit?: number;
   }): Promise<Paginated<NotificationEntity>> {
     const { skip, take, page, limit } = resolvePagination(query.page, query.limit);
-    const qb = this.repo
-      .createQueryBuilder('n')
-      .leftJoinAndSelect('n.user', 'user')
-      .orderBy('n.createdAt', 'DESC')
-      .skip(skip)
-      .take(take);
-    if (query.type) qb.andWhere('n.type = :type', { type: query.type });
-    const [data, total] = await qb.getManyAndCount();
+    const filter: FilterQuery<NotificationEntity> = {};
+    if (query.type) filter.type = query.type;
+
+    const [data, total] = await Promise.all([
+      this.repo
+        .find(filter)
+        .populate('user')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(take)
+        .exec(),
+      this.repo.countDocuments(filter).exec(),
+    ]);
     return paginate(data, total, page, limit);
   }
 }

@@ -28,13 +28,16 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   SENTRY_DSN: z.string().optional(),
 
-  // Database
-  DB_HOST: z.string().default('localhost'),
-  DB_PORT: z.coerce.number().int().positive().default(5432),
-  DB_USER: z.string().default('dental'),
-  DB_PASSWORD: z.string().default('dental'),
-  DB_NAME: z.string().default('dental'),
-  DB_SSL: zBool(false),
+  // Database (MongoDB). Provide a full MONGODB_URI, or leave it unset and the
+  // connection string is assembled from the discrete MONGO_* parts below.
+  MONGODB_URI: z.string().optional(),
+  MONGO_HOST: z.string().default('localhost'),
+  MONGO_PORT: z.coerce.number().int().positive().default(27017),
+  MONGO_DB: z.string().default('dental'),
+  MONGO_USER: z.string().optional().default(''),
+  MONGO_PASSWORD: z.string().optional().default(''),
+  MONGO_AUTH_SOURCE: z.string().optional().default('admin'),
+  MONGO_REPLICA_SET: z.string().optional(),
 
   // Redis / queue. 'redis' uses BullMQ (needs Redis); 'inline' sends emails
   // directly in-process (no Redis) — handy for local dev without infra.

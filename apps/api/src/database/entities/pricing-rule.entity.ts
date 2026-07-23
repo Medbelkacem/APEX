@@ -1,37 +1,48 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
-import { SoftDeleteEntity } from './base.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { SoftDeleteDocument, applySoftDelete, baseSchemaOptions } from '../base.schema';
 import { CaseType } from './case-type.entity';
 
 /** Price for a case type, optionally scoped to a dentist tier / material. */
-@Entity('pricing_rules')
-export class PricingRule extends SoftDeleteEntity {
-  @Column({ type: 'uuid' })
+@Schema(baseSchemaOptions('pricing_rules'))
+export class PricingRule extends SoftDeleteDocument {
+  @Prop({ type: String, ref: 'CaseType', required: true })
   caseTypeId: string;
 
-  @ManyToOne(() => CaseType, { onDelete: 'CASCADE' })
-  @JoinColumn()
-  caseType: CaseType;
-
   /** null = default price for the case type. */
-  @Column({ type: 'varchar', length: 60, nullable: true })
+  @Prop({ type: String, default: null })
   dentistTier: string | null;
 
   /** Optional surcharge scope by material. */
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Prop({ type: String, default: null })
   material: string | null;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Prop({ type: String, required: true })
   price: string;
 
-  @Column({ type: 'varchar', length: 3, default: 'USD' })
+  @Prop({ type: String, default: 'USD' })
   currency: string;
 
-  @Column({ type: 'date', default: () => 'CURRENT_DATE' })
+  /** ISO date (YYYY-MM-DD). */
+  @Prop({ type: String, required: true })
   effectiveFrom: string;
 
-  @Column({ type: 'date', nullable: true })
+  @Prop({ type: String, default: null })
   effectiveTo: string | null;
 
-  @Column({ type: 'boolean', default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
+
+  declare caseType?: CaseType;
 }
+
+export type PricingRuleDocument = HydratedDocument<PricingRule>;
+export const PricingRuleSchema = SchemaFactory.createForClass(PricingRule);
+applySoftDelete(PricingRuleSchema);
+
+PricingRuleSchema.virtual('caseType', {
+  ref: 'CaseType',
+  localField: 'caseTypeId',
+  foreignField: '_id',
+  justOne: true,
+});

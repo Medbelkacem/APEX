@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
+import { Model } from 'mongoose';
 import { PricingRule } from '../../database/entities';
 import { PricingService } from './pricing.service';
 
@@ -17,22 +17,20 @@ function rule(partial: Partial<PricingRule>): PricingRule {
     effectiveTo: null,
     isActive: true,
     ...partial,
-  } as PricingRule;
+  } as unknown as PricingRule;
 }
 
 /**
- * The service only ever reads candidate rules through one query builder, so the
- * repository is stubbed down to that: `getMany` returns whatever the test set up,
- * and the service's own precedence logic is what's under test.
+ * The service reads candidate rules through one `find().sort().exec()` chain, so
+ * the model is stubbed down to that: `exec` returns whatever the test set up, and
+ * the service's own precedence logic is what's under test.
  */
 function serviceWith(rules: PricingRule[]): PricingService {
-  const qb = {
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    getMany: jest.fn().mockResolvedValue(rules),
+  const query = {
+    sort: jest.fn().mockReturnThis(),
+    exec: jest.fn().mockResolvedValue(rules),
   };
-  const repo = { createQueryBuilder: jest.fn().mockReturnValue(qb) } as unknown as Repository<PricingRule>;
+  const repo = { find: jest.fn().mockReturnValue(query) } as unknown as Model<PricingRule>;
   const config = { get: () => ({ defaultCurrency: 'USD' }) } as unknown as ConfigService;
   return new PricingService(repo, config);
 }

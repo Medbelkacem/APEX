@@ -12,7 +12,7 @@ Modular monolith in a pnpm + Turborepo monorepo.
 
 | Package | Stack | Purpose |
 | --- | --- | --- |
-| `apps/api` | NestJS · TypeScript · TypeORM · PostgreSQL | REST API, RBAC, integrations, background jobs |
+| `apps/api` | NestJS · TypeScript · Mongoose · MongoDB | REST API, RBAC, integrations, background jobs |
 | `apps/web` | Next.js (App Router) · React · TypeScript · Tailwind | Marketing site + dentist portal + admin dashboard |
 | `packages/shared-types` | TypeScript | Types shared between web and api |
 | `packages/ui-kit` | React | Reusable UI components |
@@ -34,8 +34,8 @@ PDF generation, local→S3 storage abstraction, Redis/BullMQ background jobs.
 
 ## Quick start (no Docker, no Redis)
 
-The fastest way to run everything — a userspace PostgreSQL is started for you, the
-schema is migrated + seeded, and the API + web run in watch mode. Emails print to
+The fastest way to run everything — a userspace MongoDB (single-node replica set)
+is started for you and seeded, and the API + web run in watch mode. Emails print to
 the API logs and the job queue runs in-process (`QUEUE_DRIVER=inline`).
 
 ```bash
@@ -49,17 +49,17 @@ pnpm start:local
 - Default login → `admin@dental-lab.test` / `ChangeMe123!`
 
 Prefer to manage the database yourself? `pnpm db:local` runs just the userspace
-Postgres (migrated + seeded); then `pnpm dev` runs the apps in another terminal.
+MongoDB (seeded); then `pnpm dev` runs the apps in another terminal.
 
-## Full stack with Docker (Postgres + Redis + Mailpit)
+## Full stack with Docker (MongoDB + Redis + Mailpit)
 
 For a production-like setup with the real BullMQ/Redis queue and a mail catcher:
 
 ```bash
 pnpm install
 cp .env.example .env
-docker compose up -d postgres redis mailpit
-pnpm db:migrate && pnpm db:seed
+docker compose up -d mongo redis mailpit
+pnpm db:seed
 pnpm dev
 ```
 
@@ -75,7 +75,6 @@ Mailpit (captured emails) → http://localhost:8025.
 | `pnpm lint` | Lint all packages |
 | `pnpm typecheck` | Type-check all packages |
 | `pnpm test` | Run all unit tests (api + web) |
-| `pnpm db:migrate` | Run TypeORM migrations |
 | `pnpm db:seed` | Seed reference + admin data |
 
 ## Testing
@@ -84,21 +83,19 @@ Mailpit (captured emails) → http://localhost:8025.
 | --- | --- | --- |
 | API unit | `pnpm --filter @dental/api test` | Jest, no infrastructure needed |
 | Web unit | `pnpm --filter @dental/web test` | Vitest + Testing Library (jsdom) |
-| API end-to-end | `pnpm --filter @dental/api test:e2e` | Needs a running PostgreSQL |
+| API end-to-end | `pnpm --filter @dental/api test:e2e` | Self-contained; no external DB |
 
 The end-to-end suite boots the real Nest application — global guards, cookie
-session, serializer, Stripe raw-body webhook — against a real database. It
-creates and migrates its own **`dental_test`** database and truncates between
-tests, so it never touches your development data. Start a database first with
-`pnpm db:local` (or `pnpm docker:up`); the suite fails with instructions if it
-cannot reach one. Redis is not required: jobs run inline and mail goes to the
-logger.
+session, Stripe raw-body webhook — against a real MongoDB. It starts its own
+in-memory **`dental_test`** server (a single-node replica set, via
+`mongodb-memory-server`) and clears every collection between tests, so it never
+touches your development data and needs no running database. Redis is not
+required either: jobs run inline and mail goes to the logger.
 
-A real PostgreSQL is deliberate rather than incidental — case and invoice
-numbering take a transaction-scoped advisory lock, filtering uses `INTERVAL`
-and `ILIKE`, and money lives in `decimal` columns whose string round-tripping
-is part of what the suite asserts. An in-memory engine would test a different
-program.
+A real MongoDB is deliberate rather than incidental — case and invoice numbering
+and the multi-document writes run inside transactions (hence a replica set), and
+money lives in decimal-string fields whose round-tripping is part of what the
+suite asserts. A mock would test a different program.
 
 The five money-path defects that suite originally caught — a double Stripe
 refund, a redelivered webhook un-refunding an invoice, settlement that never

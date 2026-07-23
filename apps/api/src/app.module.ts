@@ -3,7 +3,7 @@ import { resolve } from 'path';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { MongooseModule, MongooseModuleFactoryOptions } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -72,9 +72,9 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
       },
     }),
 
-    TypeOrmModule.forRootAsync({
+    MongooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => config.get<TypeOrmModuleOptions>('database')!,
+      useFactory: (config: ConfigService) => config.get<MongooseModuleFactoryOptions>('database')!,
     }),
 
     // Global JWT: available to the JwtAuthGuard and AuthService.

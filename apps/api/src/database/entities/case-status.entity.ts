@@ -1,31 +1,38 @@
-import { Column, Entity, Index, OneToMany } from 'typeorm';
-import { BaseEntity } from './base.entity';
-import { DentalCase } from './case.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { BaseDocument, baseSchemaOptions } from '../base.schema';
 
 /** A configurable workflow status a case can move through. */
-@Entity('case_statuses')
-export class CaseStatus extends BaseEntity {
-  @Column({ type: 'varchar', length: 120 })
+@Schema(baseSchemaOptions('case_statuses'))
+export class CaseStatus extends BaseDocument {
+  @Prop({ type: String, required: true })
   label: string;
 
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 140 })
+  @Prop({ type: String, required: true, unique: true })
   slug: string;
 
   /** Hex color for UI badges, e.g. #2563eb. */
-  @Column({ type: 'varchar', length: 9, default: '#64748b' })
+  @Prop({ type: String, default: '#64748b' })
   color: string;
 
-  @Column({ type: 'int', default: 0 })
+  @Prop({ type: Number, default: 0 })
   sortOrder: number;
 
   /** Terminal statuses end the workflow (e.g. Completed, Cancelled). */
-  @Column({ type: 'boolean', default: false })
+  @Prop({ type: Boolean, default: false })
   isTerminal: boolean;
 
-  @Column({ type: 'boolean', default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
-  @OneToMany(() => DentalCase, (c) => c.currentStatus)
-  cases?: DentalCase[];
+  declare cases?: import('./case.entity').DentalCase[];
 }
+
+export type CaseStatusDocument = HydratedDocument<CaseStatus>;
+export const CaseStatusSchema = SchemaFactory.createForClass(CaseStatus);
+
+CaseStatusSchema.virtual('cases', {
+  ref: 'DentalCase',
+  localField: '_id',
+  foreignField: 'currentStatusId',
+});

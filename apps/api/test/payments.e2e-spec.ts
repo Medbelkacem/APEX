@@ -61,7 +61,7 @@ describe('Payments (e2e)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    await truncateAll(ctx.dataSource);
+    await truncateAll(ctx.connection);
 
     catalog = await fixtures.catalog();
     dentist = await fixtures.dentist();

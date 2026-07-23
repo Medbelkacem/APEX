@@ -10,6 +10,7 @@ import { INestApplication } from '@nestjs/common';
 import { UserRole, UserStatus } from '@dental/shared-types';
 import { User } from '../src/database/entities/user.entity';
 import { Dentist } from '../src/database/entities/dentist.entity';
+import { AuditLog } from '../src/database/entities/audit-log.entity';
 import { createTestApp, TestApp } from './support/app';
 import { truncateAll } from './support/database';
 import { Fixtures, TEST_PASSWORD } from './support/factories';
@@ -38,7 +39,7 @@ describe('Dentist registration (e2e)', () => {
   afterAll(async () => ctx.close());
 
   beforeEach(async () => {
-    await truncateAll(ctx.dataSource);
+    await truncateAll(ctx.connection);
     const admin = await fixtures.admin();
     adminSession = await login(app, admin.email);
   });
@@ -52,11 +53,9 @@ describe('Dentist registration (e2e)', () => {
 
   /** The applicant's user row, including the hidden verification columns. */
   const applicant = (email = APPLICANT.email) =>
-    users()
-      .createQueryBuilder('user')
-      .addSelect(['user.emailVerificationTokenHash', 'user.emailVerificationExpiresAt'])
-      .where('LOWER(user.email) = LOWER(:email)', { email })
-      .getOneOrFail();
+    // The adapter re-selects the hidden email-verification columns; stored
+    // emails are always lower-cased.
+    users().findOneByOrFail({ email: email.toLowerCase() });
 
   /**
    * Registers and returns the raw verification token.
@@ -335,10 +334,9 @@ describe('Dentist registration (e2e)', () => {
 
       await approve(dentist.id);
 
-      const logs = await ctx.dataSource.query(
-        `SELECT action FROM audit_logs WHERE entity_id = $1 ORDER BY created_at DESC`,
-        [dentist.id],
-      );
+      const logs = await ctx.dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entityId: dentist.id }, order: { createdAt: 'DESC' } });
       expect(logs[0].action).toBe('dentist.approved');
     });
 

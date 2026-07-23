@@ -1,72 +1,87 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
-import { SoftDeleteEntity } from './base.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { SoftDeleteDocument, applySoftDelete, baseSchemaOptions } from '../base.schema';
 import { Dentist } from './dentist.entity';
 import { CaseType } from './case-type.entity';
 import { CaseStatus } from './case-status.entity';
-import { CaseFile } from './case-file.entity';
-import { CaseStatusHistory } from './case-status-history.entity';
-import { Invoice } from './invoice.entity';
 
 /** A dental case submitted by a dentist. */
-@Entity('cases')
-export class DentalCase extends SoftDeleteEntity {
+@Schema(baseSchemaOptions('cases'))
+export class DentalCase extends SoftDeleteDocument {
   /** Human-readable reference, e.g. CASE-2026-0001. */
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 40 })
+  @Prop({ type: String, required: true, unique: true })
   reference: string;
 
-  @Column({ type: 'uuid' })
+  @Prop({ type: String, ref: 'Dentist', required: true })
   dentistId: string;
 
-  @ManyToOne(() => Dentist, (d) => d.cases, { onDelete: 'RESTRICT' })
-  @JoinColumn()
-  dentist: Dentist;
-
-  @Column({ type: 'uuid' })
+  @Prop({ type: String, ref: 'CaseType', required: true })
   caseTypeId: string;
 
-  @ManyToOne(() => CaseType, (t) => t.cases, { onDelete: 'RESTRICT' })
-  @JoinColumn()
-  caseType: CaseType;
-
   /** Anonymized patient label — no PHI beyond what the workflow needs. */
-  @Column({ type: 'varchar', length: 120 })
+  @Prop({ type: String, required: true })
   patientReference: string;
 
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Prop({ type: String, default: null })
   toothRegion: string | null;
 
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Prop({ type: String, default: null })
   material: string | null;
 
-  @Column({ type: 'varchar', length: 60, nullable: true })
+  @Prop({ type: String, default: null })
   shade: string | null;
 
-  @Column({ type: 'date', nullable: true })
+  /** ISO date (YYYY-MM-DD). */
+  @Prop({ type: String, default: null })
   deadline: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Prop({ type: String, default: null })
   clinicalNotes: string | null;
 
-  @Column({ type: 'uuid' })
+  @Prop({ type: String, ref: 'CaseStatus', required: true })
   currentStatusId: string;
 
-  @ManyToOne(() => CaseStatus, (s) => s.cases, { onDelete: 'RESTRICT' })
-  @JoinColumn()
-  currentStatus: CaseStatus;
-
-  @Column({ type: 'timestamptz', default: () => 'now()' })
+  @Prop({ type: Date, default: () => new Date() })
   submittedAt: Date;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Prop({ type: Date, default: null })
   completedAt: Date | null;
 
-  @OneToMany(() => CaseFile, (f) => f.case)
-  files?: CaseFile[];
-
-  @OneToMany(() => CaseStatusHistory, (h) => h.case)
-  statusHistory?: CaseStatusHistory[];
-
-  @OneToMany(() => Invoice, (i) => i.case)
-  invoices?: Invoice[];
+  // Populated virtuals — declared for typing only.
+  declare dentist?: Dentist;
+  declare caseType?: CaseType;
+  declare currentStatus?: CaseStatus;
+  declare files?: import('./case-file.entity').CaseFile[];
+  declare statusHistory?: import('./case-status-history.entity').CaseStatusHistory[];
+  declare invoices?: import('./invoice.entity').Invoice[];
 }
+
+export type DentalCaseDocument = HydratedDocument<DentalCase>;
+export const DentalCaseSchema = SchemaFactory.createForClass(DentalCase);
+applySoftDelete(DentalCaseSchema);
+
+DentalCaseSchema.virtual('dentist', {
+  ref: 'Dentist',
+  localField: 'dentistId',
+  foreignField: '_id',
+  justOne: true,
+});
+DentalCaseSchema.virtual('caseType', {
+  ref: 'CaseType',
+  localField: 'caseTypeId',
+  foreignField: '_id',
+  justOne: true,
+});
+DentalCaseSchema.virtual('currentStatus', {
+  ref: 'CaseStatus',
+  localField: 'currentStatusId',
+  foreignField: '_id',
+  justOne: true,
+});
+DentalCaseSchema.virtual('files', { ref: 'CaseFile', localField: '_id', foreignField: 'caseId' });
+DentalCaseSchema.virtual('statusHistory', {
+  ref: 'CaseStatusHistory',
+  localField: '_id',
+  foreignField: 'caseId',
+});
+DentalCaseSchema.virtual('invoices', { ref: 'Invoice', localField: '_id', foreignField: 'caseId' });

@@ -1,6 +1,18 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { DentalCase, Dentist, Invoice, InvoiceLineItem } from '../../database/entities';
+import { MongooseModule } from '@nestjs/mongoose';
+import {
+  Counter,
+  CounterSchema,
+  DentalCase,
+  DentalCaseSchema,
+  Dentist,
+  DentistSchema,
+  Invoice,
+  InvoiceLineItem,
+  InvoiceLineItemSchema,
+  InvoiceSchema,
+} from '../../database/entities';
+import { CatalogModule } from '../catalog/catalog.module';
 import { PricingModule } from '../pricing/pricing.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PaymentsService } from '../payments/payments.service';
@@ -14,7 +26,14 @@ import { InvoicesController, PaymentsWebhookController } from './invoices.contro
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Invoice, InvoiceLineItem, DentalCase, Dentist]),
+    MongooseModule.forFeature([
+      { name: Invoice.name, schema: InvoiceSchema },
+      { name: InvoiceLineItem.name, schema: InvoiceLineItemSchema },
+      { name: DentalCase.name, schema: DentalCaseSchema },
+      { name: Dentist.name, schema: DentistSchema },
+      { name: Counter.name, schema: CounterSchema },
+    ]),
+    CatalogModule,
     PricingModule,
     NotificationsModule,
   ],

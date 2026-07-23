@@ -14,6 +14,7 @@
   },
   "setupFiles": ["<rootDir>/test/support/env.ts"],
   "globalSetup": "<rootDir>/test/globalSetup.ts",
+  "globalTeardown": "<rootDir>/test/globalTeardown.ts",
   "testEnvironment": "node",
   "testTimeout": 30000,
   "maxWorkers": 1

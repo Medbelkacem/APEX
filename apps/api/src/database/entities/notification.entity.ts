@@ -1,47 +1,60 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
 import {
   NotificationChannel,
   NotificationStatus,
   NotificationType,
 } from '@dental/shared-types';
-import { BaseEntity } from './base.entity';
+import { BaseDocument, baseSchemaOptions } from '../base.schema';
 import { User } from './user.entity';
 
 /** Email and in-app notification log. */
-@Entity('notifications')
-@Index(['userId', 'status'])
-export class NotificationEntity extends BaseEntity {
-  @Column({ type: 'uuid' })
+@Schema(baseSchemaOptions('notifications'))
+export class NotificationEntity extends BaseDocument {
+  @Prop({ type: String, ref: 'User', required: true })
   userId: string;
 
-  @ManyToOne(() => User, (u) => u.notifications, { onDelete: 'CASCADE' })
-  @JoinColumn()
-  user: User;
-
-  @Column({ type: 'enum', enum: NotificationType })
+  @Prop({ type: String, enum: Object.values(NotificationType), required: true })
   type: NotificationType;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Prop({ type: String, required: true })
   subject: string;
 
-  @Column({ type: 'text' })
+  @Prop({ type: String, required: true })
   body: string;
 
-  @Column({ type: 'enum', enum: NotificationChannel })
+  @Prop({ type: String, enum: Object.values(NotificationChannel), required: true })
   channel: NotificationChannel;
 
-  @Column({ type: 'enum', enum: NotificationStatus, default: NotificationStatus.PENDING })
+  @Prop({
+    type: String,
+    enum: Object.values(NotificationStatus),
+    default: NotificationStatus.PENDING,
+  })
   status: NotificationStatus;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Prop({ type: String, default: null })
   relatedCaseId: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Prop({ type: String, default: null })
   relatedInvoiceId: string | null;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Prop({ type: Date, default: null })
   sentAt: Date | null;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Prop({ type: Date, default: null })
   readAt: Date | null;
+
+  declare user?: User;
 }
+
+export type NotificationDocument = HydratedDocument<NotificationEntity>;
+export const NotificationSchema = SchemaFactory.createForClass(NotificationEntity);
+
+NotificationSchema.index({ userId: 1, status: 1 });
+NotificationSchema.virtual('user', {
+  ref: 'User',
+  localField: 'userId',
+  foreignField: '_id',
+  justOne: true,
+});

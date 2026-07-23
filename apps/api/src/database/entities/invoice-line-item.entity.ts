@@ -1,26 +1,35 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from './base.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { BaseDocument, baseSchemaOptions } from '../base.schema';
 import { Invoice } from './invoice.entity';
 
-/** A single line on an invoice. */
-@Entity('invoice_line_items')
-export class InvoiceLineItem extends BaseEntity {
-  @Column({ type: 'uuid' })
+/** A single line on an invoice. Amounts are decimal strings. */
+@Schema(baseSchemaOptions('invoice_line_items'))
+export class InvoiceLineItem extends BaseDocument {
+  @Prop({ type: String, ref: 'Invoice', required: true })
   invoiceId: string;
 
-  @ManyToOne(() => Invoice, (i) => i.lineItems, { onDelete: 'CASCADE' })
-  @JoinColumn()
-  invoice: Invoice;
-
-  @Column({ type: 'varchar', length: 255 })
+  @Prop({ type: String, required: true })
   description: string;
 
-  @Column({ type: 'int', default: 1 })
+  @Prop({ type: Number, default: 1 })
   quantity: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Prop({ type: String, required: true })
   unitPrice: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Prop({ type: String, required: true })
   total: string;
+
+  declare invoice?: Invoice;
 }
+
+export type InvoiceLineItemDocument = HydratedDocument<InvoiceLineItem>;
+export const InvoiceLineItemSchema = SchemaFactory.createForClass(InvoiceLineItem);
+
+InvoiceLineItemSchema.virtual('invoice', {
+  ref: 'Invoice',
+  localField: 'invoiceId',
+  foreignField: '_id',
+  justOne: true,
+});

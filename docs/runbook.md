@@ -7,8 +7,7 @@ Operational procedures for the Dental Laboratory Management Platform.
 ```bash
 pnpm install
 cp .env.example .env
-docker compose up -d postgres redis mailpit   # requires docker access
-pnpm db:migrate
+docker compose up -d mongo redis mailpit   # requires docker access
 pnpm db:seed
 pnpm dev
 ```
@@ -20,32 +19,35 @@ pnpm dev
 The seed creates a super-admin from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`
 (defaults: `admin@dental-lab.test` / `ChangeMe123!`).
 
-## Database migrations
+## Database schema & indexes
 
-Schema changes are always made through versioned, reversible migrations —
-`synchronize` is disabled everywhere.
+MongoDB is schemaless, so there are no migration files. Collection shapes are
+defined by the Mongoose schemas in `apps/api/src/database/entities`, and their
+indexes (unique email, case reference, invoice number, the composite statement
+key, …) are built automatically on boot (`autoIndex: true`). After changing an
+index in a schema, restart the API to rebuild it; a running instance can be
+resynced without downtime with `Model.syncIndexes()`.
 
-```bash
-# After editing entities, generate a migration from the diff:
-pnpm --filter @dental/api migration:generate src/database/migrations/<Name>
+MongoDB requires a **replica set** for the app's transactions (case + status
+history, invoice + line items, reference numbering). Provision the production
+database as a replica set — even a single node — or those writes will fail.
 
-# Apply / roll back:
-pnpm db:migrate
-pnpm --filter @dental/api migration:revert
-```
+Reference data (workflow statuses, case types, first super-admin) is seeded,
+idempotently, with `pnpm db:seed`.
 
 ## Deploy
 
 1. CI runs lint → typecheck → test → build on every PR.
 2. On merge to `main`, build and push the `docker/api.Dockerfile` and
    `docker/web.Dockerfile` images.
-3. Run `pnpm db:migrate` against the target database before releasing the API.
-4. Roll back by redeploying the previous image tag; revert the last migration if
-   the release included a schema change.
+3. Run `pnpm db:seed` against the target database on first release (and whenever
+   new reference data is added); it is idempotent.
+4. Roll back by redeploying the previous image tag. Document changes are
+   backward-compatible by default, so a rollback needs no schema step.
 
 ## Backups & restore
 
-- **Database:** daily `pg_dump`; verify monthly with a restore drill.
+- **Database:** daily `mongodump`; verify monthly with a `mongorestore` drill.
 - **Storage volume** (`storage/`): daily snapshot of case files, invoices, and
   statements. Metadata lives in the DB, so restore both together.
 

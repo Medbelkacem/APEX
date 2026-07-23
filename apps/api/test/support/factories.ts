@@ -9,7 +9,6 @@
  * that a failing assertion names a stable address, and so two workers running
  * concurrently cannot collide on the unique index.
  */
-import { DataSource } from 'typeorm';
 import { hash as argon2Hash } from '@node-rs/argon2';
 import { UserRole, UserStatus } from '@dental/shared-types';
 import { authConfig } from '../../src/config/auth.config';
@@ -19,6 +18,7 @@ import { Dentist } from '../../src/database/entities/dentist.entity';
 import { CaseType } from '../../src/database/entities/case-type.entity';
 import { CaseStatus } from '../../src/database/entities/case-status.entity';
 import { PricingRule } from '../../src/database/entities/pricing-rule.entity';
+import { TestRepositories } from './app';
 
 /** Meets the policy in common/utils/password-policy.ts: 10+ chars, upper, lower, digit. */
 export const TEST_PASSWORD = 'TestPassw0rd!';
@@ -32,7 +32,7 @@ export interface SeededDentist {
 }
 
 export class Fixtures {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: TestRepositories) {}
 
   /**
    * Hashing at the configured cost on every fixture would dominate the suite's

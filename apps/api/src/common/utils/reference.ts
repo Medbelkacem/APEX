@@ -1,35 +1,30 @@
-import { EntityManager } from 'typeorm';
+import { ClientSession, Model } from 'mongoose';
+import { Counter } from '../../database/entities';
 import { formatSequence } from './slugify';
 
 /**
- * Allocate the next sequential, year-scoped reference for a table —
+ * Allocate the next sequential, year-scoped reference for a prefix —
  * e.g. `CASE-2026-0001`, `INV-2026-0007`.
  *
- * Concurrency: a transaction-scoped Postgres advisory lock keyed on
- * `prefix:year` serializes concurrent allocations, so two simultaneous
- * submissions can never derive the same number from `MAX(...)`. The lock is
- * released automatically when the surrounding transaction commits or rolls
- * back, so callers must run this inside a transaction.
+ * Concurrency: a single `findByIdAndUpdate` with `$inc` on the counter document
+ * keyed `<prefix>:<year>` is atomic, so two simultaneous submissions can never
+ * derive the same number. When a `session` is supplied the increment joins the
+ * surrounding transaction and rolls back with it; otherwise it stands alone,
+ * which at worst skips a number (gaps were already possible under soft delete).
  */
 export async function allocateReference(
-  manager: EntityManager,
-  options: { table: string; column: string; prefix: string; year?: number },
+  counters: Model<Counter>,
+  options: { prefix: string; year?: number },
+  session?: ClientSession,
 ): Promise<string> {
   const year = options.year ?? new Date().getFullYear();
-  const lockKey = `${options.prefix}:${year}`;
+  const key = `${options.prefix}:${year}`;
 
-  await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey]);
-
-  const pattern = `${options.prefix}-${year}-%`;
-  // Read the highest suffix issued this year, ignoring soft-deleted rows so a
-  // deletion can never cause a number to be reused.
-  const rows: Array<{ max: string | null }> = await manager.query(
-    `SELECT MAX(CAST(SUBSTRING("${options.column}" FROM '[0-9]+$') AS INTEGER))::text AS max
-       FROM "${options.table}"
-      WHERE "${options.column}" LIKE $1`,
-    [pattern],
+  const counter = await counters.findByIdAndUpdate(
+    key,
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true, session },
   );
 
-  const next = Number(rows[0]?.max ?? 0) + 1;
-  return formatSequence(options.prefix, year, next);
+  return formatSequence(options.prefix, year, counter!.seq);
 }

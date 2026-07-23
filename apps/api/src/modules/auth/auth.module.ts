@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { RefreshToken } from '../../database/entities';
+import { MongooseModule } from '@nestjs/mongoose';
+import { RefreshToken, RefreshTokenSchema } from '../../database/entities';
 import { UsersModule } from '../users/users.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -12,7 +12,10 @@ import { RefreshTokenScheduler } from './refresh-token.scheduler';
  * (and to the global JwtAuthGuard) without re-importing.
  */
 @Module({
-  imports: [UsersModule, TypeOrmModule.forFeature([RefreshToken])],
+  imports: [
+    UsersModule,
+    MongooseModule.forFeature([{ name: RefreshToken.name, schema: RefreshTokenSchema }]),
+  ],
   providers: [AuthService, RefreshTokenService, RefreshTokenScheduler],
   controllers: [AuthController],
   exports: [AuthService, RefreshTokenService],

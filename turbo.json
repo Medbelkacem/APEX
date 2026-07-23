@@ -3,7 +3,7 @@
   "globalDependencies": [".env"],
   "globalEnv": [
     "NODE_ENV",
-    "DATABASE_URL",
+    "MONGODB_URI",
     "JWT_SECRET",
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",

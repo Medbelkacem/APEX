@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { PricingRule } from '../../database/entities';
+import { MongooseModule } from '@nestjs/mongoose';
+import { PricingRule, PricingRuleSchema } from '../../database/entities';
 import { PricingService } from './pricing.service';
 import { PricingController } from './pricing.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PricingRule])],
+  imports: [MongooseModule.forFeature([{ name: PricingRule.name, schema: PricingRuleSchema }])],
   providers: [PricingService],
   controllers: [PricingController],
   exports: [PricingService],

@@ -1,8 +1,8 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
+import { Model } from 'mongoose';
 import { PlatformSetting } from '../../database/entities';
 import { AuthConfig } from '../../config/auth.config';
 
@@ -44,7 +44,7 @@ export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
 
   constructor(
-    @InjectRepository(PlatformSetting) private readonly repo: Repository<PlatformSetting>,
+    @InjectModel(PlatformSetting.name) private readonly repo: Model<PlatformSetting>,
     private readonly config: ConfigService,
   ) {}
 
@@ -86,7 +86,7 @@ export class SettingsService {
 
   /** Raw value for internal callers, decrypting secrets as needed. */
   async get(key: string): Promise<string | null> {
-    const row = await this.repo.findOne({ where: { key } });
+    const row = await this.repo.findOne({ key }).exec();
     if (!row?.value) return null;
     return row.isSecret ? this.decrypt(row.value) : row.value;
   }
@@ -95,25 +95,21 @@ export class SettingsService {
     const isSecret = SECRET_KEYS.has(key);
     const stored = value === null || value === '' ? null : isSecret ? this.encrypt(value) : value;
 
-    const existing = await this.repo.findOne({ where: { key } });
-    if (existing) {
-      await this.repo.update(existing.id, {
-        value: stored,
-        isSecret,
-        updatedByUserId: updatedByUserId ?? null,
-      });
-      return;
-    }
-    await this.repo.save(
-      this.repo.create({ key, value: stored, isSecret, updatedByUserId: updatedByUserId ?? null }),
-    );
+    // Upsert keeps the row keyed by `key`, refreshing `updatedAt` via timestamps.
+    await this.repo
+      .updateOne(
+        { key },
+        { $set: { value: stored, isSecret, updatedByUserId: updatedByUserId ?? null } },
+        { upsert: true },
+      )
+      .exec();
   }
 
   /** Client-facing listing: secrets are reported as set/unset, never revealed. */
   async listRedacted(): Promise<
     Array<{ key: string; value: string | null; isSecret: boolean; isSet: boolean; updatedAt: Date | null }>
   > {
-    const rows = await this.repo.find({ order: { key: 'ASC' } });
+    const rows = await this.repo.find().sort({ key: 1 }).exec();
     const byKey = new Map(rows.map((row) => [row.key, row]));
 
     return Object.values(SETTING_KEYS).map((key) => {

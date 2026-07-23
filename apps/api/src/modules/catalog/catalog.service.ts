@@ -1,7 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
-import { CaseStatus, CaseType, DentalCase } from '../../database/entities';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import {
+  CaseStatus,
+  CaseStatusDocument,
+  CaseType,
+  CaseTypeDocument,
+  DentalCase,
+} from '../../database/entities';
 import { slugify } from '../../common/utils/slugify';
 import {
   CreateCaseStatusDto,
@@ -17,37 +23,35 @@ import {
 @Injectable()
 export class CatalogService {
   constructor(
-    @InjectRepository(CaseType) private readonly caseTypes: Repository<CaseType>,
-    @InjectRepository(CaseStatus) private readonly caseStatuses: Repository<CaseStatus>,
-    @InjectRepository(DentalCase) private readonly cases: Repository<DentalCase>,
+    @InjectModel(CaseType.name) private readonly caseTypes: Model<CaseType>,
+    @InjectModel(CaseStatus.name) private readonly caseStatuses: Model<CaseStatus>,
+    @InjectModel(DentalCase.name) private readonly cases: Model<DentalCase>,
   ) {}
 
   // ── Case types ────────────────────────────────────────────────────────────
 
   listCaseTypes(includeInactive = false): Promise<CaseType[]> {
-    return this.caseTypes.find({
-      where: includeInactive ? {} : { isActive: true },
-      order: { sortOrder: 'ASC', name: 'ASC' },
-    });
+    return this.caseTypes
+      .find(includeInactive ? {} : { isActive: true })
+      .sort({ sortOrder: 1, name: 1 })
+      .exec();
   }
 
-  async findCaseTypeOrFail(id: string): Promise<CaseType> {
-    const found = await this.caseTypes.findOne({ where: { id } });
+  async findCaseTypeOrFail(id: string): Promise<CaseTypeDocument> {
+    const found = await this.caseTypes.findById(id).exec();
     if (!found) throw new NotFoundException('Case type not found');
     return found;
   }
 
   async createCaseType(dto: CreateCaseTypeDto): Promise<CaseType> {
     const slug = await this.uniqueSlug(this.caseTypes, slugify(dto.name));
-    return this.caseTypes.save(
-      this.caseTypes.create({
-        name: dto.name,
-        slug,
-        description: dto.description ?? null,
-        isActive: dto.isActive ?? true,
-        sortOrder: dto.sortOrder ?? 0,
-      }),
-    );
+    return this.caseTypes.create({
+      name: dto.name,
+      slug,
+      description: dto.description ?? null,
+      isActive: dto.isActive ?? true,
+      sortOrder: dto.sortOrder ?? 0,
+    });
   }
 
   async updateCaseType(id: string, dto: UpdateCaseTypeDto): Promise<CaseType> {
@@ -59,7 +63,7 @@ export class CatalogService {
     if (dto.description !== undefined) entity.description = dto.description;
     if (dto.isActive !== undefined) entity.isActive = dto.isActive;
     if (dto.sortOrder !== undefined) entity.sortOrder = dto.sortOrder;
-    return this.caseTypes.save(entity);
+    return entity.save();
   }
 
   /**
@@ -68,40 +72,40 @@ export class CatalogService {
    */
   async removeCaseType(id: string): Promise<{ deleted: boolean; deactivated: boolean }> {
     await this.findCaseTypeOrFail(id);
-    const inUse = await this.cases.count({ where: { caseTypeId: id } });
+    const inUse = await this.cases.countDocuments({ caseTypeId: id }).exec();
     if (inUse > 0) {
-      await this.caseTypes.update(id, { isActive: false });
+      await this.caseTypes.updateOne({ _id: id }, { isActive: false }).exec();
       return { deleted: false, deactivated: true };
     }
-    await this.caseTypes.softDelete(id);
+    await this.caseTypes.updateOne({ _id: id }, { deletedAt: new Date() }).exec();
     return { deleted: true, deactivated: false };
   }
 
   // ── Workflow statuses ─────────────────────────────────────────────────────
 
   listStatuses(includeInactive = false): Promise<CaseStatus[]> {
-    return this.caseStatuses.find({
-      where: includeInactive ? {} : { isActive: true },
-      order: { sortOrder: 'ASC', label: 'ASC' },
-    });
+    return this.caseStatuses
+      .find(includeInactive ? {} : { isActive: true })
+      .sort({ sortOrder: 1, label: 1 })
+      .exec();
   }
 
-  async findStatusOrFail(id: string): Promise<CaseStatus> {
-    const found = await this.caseStatuses.findOne({ where: { id } });
+  async findStatusOrFail(id: string): Promise<CaseStatusDocument> {
+    const found = await this.caseStatuses.findById(id).exec();
     if (!found) throw new NotFoundException('Workflow status not found');
     return found;
   }
 
   async findStatusBySlug(slug: string): Promise<CaseStatus | null> {
-    return this.caseStatuses.findOne({ where: { slug } });
+    return this.caseStatuses.findOne({ slug }).exec();
   }
 
   /** The status new cases enter — the lowest-ordered active, non-terminal one. */
   async defaultStatus(): Promise<CaseStatus> {
-    const status = await this.caseStatuses.findOne({
-      where: { isActive: true, isTerminal: false },
-      order: { sortOrder: 'ASC' },
-    });
+    const status = await this.caseStatuses
+      .findOne({ isActive: true, isTerminal: false })
+      .sort({ sortOrder: 1 })
+      .exec();
     if (!status) {
       throw new BadRequestException(
         'No active workflow status is configured — an admin must define one first',
@@ -112,20 +116,15 @@ export class CatalogService {
 
   async createStatus(dto: CreateCaseStatusDto): Promise<CaseStatus> {
     const slug = await this.uniqueSlug(this.caseStatuses, slugify(dto.label));
-    const max = await this.caseStatuses
-      .createQueryBuilder('s')
-      .select('MAX(s.sortOrder)', 'max')
-      .getRawOne<{ max: number | null }>();
-    return this.caseStatuses.save(
-      this.caseStatuses.create({
-        label: dto.label,
-        slug,
-        color: dto.color ?? '#64748b',
-        sortOrder: dto.sortOrder ?? Number(max?.max ?? 0) + 1,
-        isTerminal: dto.isTerminal ?? false,
-        isActive: dto.isActive ?? true,
-      }),
-    );
+    const highest = await this.caseStatuses.findOne().sort({ sortOrder: -1 }).exec();
+    return this.caseStatuses.create({
+      label: dto.label,
+      slug,
+      color: dto.color ?? '#64748b',
+      sortOrder: dto.sortOrder ?? (highest?.sortOrder ?? 0) + 1,
+      isTerminal: dto.isTerminal ?? false,
+      isActive: dto.isActive ?? true,
+    });
   }
 
   async updateStatus(id: string, dto: UpdateCaseStatusDto): Promise<CaseStatus> {
@@ -140,9 +139,9 @@ export class CatalogService {
     if (dto.isActive !== undefined) {
       // Never leave the workflow without an entry point for new cases.
       if (!dto.isActive && !entity.isTerminal) {
-        const remaining = await this.caseStatuses.count({
-          where: { isActive: true, isTerminal: false },
-        });
+        const remaining = await this.caseStatuses
+          .countDocuments({ isActive: true, isTerminal: false })
+          .exec();
         if (remaining <= 1) {
           throw new BadRequestException(
             'At least one active, non-terminal status must remain in the workflow',
@@ -151,17 +150,17 @@ export class CatalogService {
       }
       entity.isActive = dto.isActive;
     }
-    return this.caseStatuses.save(entity);
+    return entity.save();
   }
 
   /** Persist a new drag-and-drop ordering; ids must cover the listed statuses. */
   async reorderStatuses(ids: string[]): Promise<CaseStatus[]> {
-    const found = await this.caseStatuses.find({ where: { id: In(ids) } });
-    if (found.length !== ids.length) {
+    const found = await this.caseStatuses.countDocuments({ _id: { $in: ids } }).exec();
+    if (found !== ids.length) {
       throw new BadRequestException('Reorder payload references an unknown status');
     }
     await Promise.all(
-      ids.map((id, index) => this.caseStatuses.update(id, { sortOrder: index + 1 })),
+      ids.map((id, index) => this.caseStatuses.updateOne({ _id: id }, { sortOrder: index + 1 }).exec()),
     );
     return this.listStatuses(true);
   }
@@ -169,30 +168,31 @@ export class CatalogService {
   /** Statuses can never be hard-deleted while cases point at them. */
   async removeStatus(id: string): Promise<{ deactivated: boolean }> {
     const status = await this.findStatusOrFail(id);
-    const inUse = await this.cases.count({ where: { currentStatusId: id } });
+    const inUse = await this.cases.countDocuments({ currentStatusId: id }).exec();
     if (inUse > 0) {
       throw new BadRequestException(
         `${inUse} case(s) are currently in "${status.label}" — move them before removing it`,
       );
     }
-    await this.caseStatuses.update(id, { isActive: false });
+    await this.caseStatuses.updateOne({ _id: id }, { isActive: false }).exec();
     return { deactivated: true };
   }
 
   /** Append -2, -3, … until the slug is free (ignoring the row being updated). */
-  private async uniqueSlug<T extends { id: string; slug: string }>(
-    repo: Repository<T>,
+  private async uniqueSlug(
+    repo: Model<CaseType> | Model<CaseStatus>,
     base: string,
     excludeId?: string,
   ): Promise<string> {
     let candidate = base;
     for (let n = 2; ; n += 1) {
-      const clash = await repo
-        .createQueryBuilder('e')
-        .withDeleted()
-        .where('e.slug = :slug', { slug: candidate })
-        .andWhere(excludeId ? 'e.id != :excludeId' : '1=1', { excludeId })
-        .getOne();
+      const filter: Record<string, unknown> = { slug: candidate };
+      if (excludeId) filter._id = { $ne: excludeId };
+      // withDeleted so a soft-deleted row's slug is still treated as taken.
+      const clash = await (repo as Model<CaseType>)
+        .findOne(filter)
+        .setOptions({ withDeleted: true })
+        .exec();
       if (!clash) return candidate;
       candidate = `${base}-${n}`;
     }

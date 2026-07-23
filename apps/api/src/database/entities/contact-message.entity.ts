@@ -1,25 +1,29 @@
-import { Column, Entity } from 'typeorm';
-import { BaseEntity } from './base.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { BaseDocument, baseSchemaOptions } from '../base.schema';
 
 /** A submission from the public marketing contact form. */
-@Entity('contact_messages')
-export class ContactMessage extends BaseEntity {
-  @Column({ type: 'varchar', length: 150 })
+@Schema(baseSchemaOptions('contact_messages'))
+export class ContactMessage extends BaseDocument {
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Prop({ type: String, required: true })
   email: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Prop({ type: String, required: true })
   subject: string;
 
-  @Column({ type: 'text' })
+  @Prop({ type: String, required: true })
   message: string;
 
-  @Column({ type: 'varchar', length: 64, nullable: true })
+  @Prop({ type: String, default: null })
   ipAddress: string | null;
 
   /** Whether an admin has followed up on this message. */
-  @Column({ type: 'boolean', default: false })
+  @Prop({ type: Boolean, default: false })
   isHandled: boolean;
 }
+
+export type ContactMessageDocument = HydratedDocument<ContactMessage>;
+export const ContactMessageSchema = SchemaFactory.createForClass(ContactMessage);

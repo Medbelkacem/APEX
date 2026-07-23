@@ -4,9 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
+import { Connection, FilterQuery, Model } from 'mongoose';
 import {
   AuthenticatedUser,
   InvoiceStatus,
@@ -14,38 +14,49 @@ import {
   UserRole,
 } from '@dental/shared-types';
 import {
+  Counter,
   DentalCase,
   Dentist,
   Invoice,
   InvoiceLineItem,
 } from '../../database/entities';
+import { runInTransaction } from '../../database/base.schema';
 import { AppConfig } from '../../config/app.config';
 import { allocateReference } from '../../common/utils/reference';
+import { regexContains } from '../../common/utils/mongo';
 import { Paginated, paginate, resolvePagination } from '../../common/utils/pagination';
 import { emailTemplates } from '../../mail/templates';
 import { StorageService } from '../../storage/storage.service';
 import { PdfService } from '../../documents/pdf.service';
+import { CatalogService } from '../catalog/catalog.service';
 import { PricingService } from '../pricing/pricing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 import { GenerateBatchDto, GenerateInvoiceDto, ListInvoicesDto } from './invoices.dto';
 
-const DETAIL_RELATIONS = {
-  dentist: { user: true },
-  lineItems: true,
-  case: true,
-} as const;
+/** Populate spec every invoice detail view needs. */
+const DETAIL_POPULATE = [
+  { path: 'dentist', populate: { path: 'user' } },
+  { path: 'lineItems' },
+  { path: 'case' },
+];
 
 /** Statuses that still owe money. */
 const OUTSTANDING: InvoiceStatus[] = [InvoiceStatus.ISSUED];
 
+/** A status value no invoice has — yields an empty result set. */
+const MATCH_NONE = '__no_such_status__';
+
 @Injectable()
 export class InvoicesService {
   constructor(
-    @InjectRepository(Invoice) private readonly invoices: Repository<Invoice>,
-    @InjectRepository(DentalCase) private readonly cases: Repository<DentalCase>,
-    @InjectRepository(Dentist) private readonly dentists: Repository<Dentist>,
-    private readonly dataSource: DataSource,
+    @InjectModel(Invoice.name) private readonly invoices: Model<Invoice>,
+    @InjectModel(DentalCase.name) private readonly cases: Model<DentalCase>,
+    @InjectModel(Dentist.name) private readonly dentists: Model<Dentist>,
+    @InjectModel(InvoiceLineItem.name) private readonly lineItems: Model<InvoiceLineItem>,
+    @InjectModel(Counter.name) private readonly counters: Model<Counter>,
+    @InjectConnection() private readonly connection: Connection,
+    private readonly catalog: CatalogService,
     private readonly pricing: PricingService,
     private readonly pdf: PdfService,
     private readonly storage: StorageService,
@@ -63,7 +74,7 @@ export class InvoicesService {
   }
 
   private async dentistForUser(userId: string): Promise<Dentist> {
-    const dentist = await this.dentists.findOne({ where: { userId } });
+    const dentist = await this.dentists.findOne({ userId }).exec();
     if (!dentist) throw new ForbiddenException('No dentist profile is linked to this account');
     return dentist;
   }
@@ -84,47 +95,63 @@ export class InvoicesService {
 
   async list(query: ListInvoicesDto, user: AuthenticatedUser): Promise<Paginated<Invoice>> {
     const { skip, take, page, limit } = resolvePagination(query.page, query.limit);
-    const qb = this.invoices
-      .createQueryBuilder('invoice')
-      .leftJoinAndSelect('invoice.dentist', 'dentist')
-      .leftJoinAndSelect('dentist.user', 'dentistUser')
-      .leftJoinAndSelect('invoice.case', 'case');
+    const filter: FilterQuery<Invoice> = {};
 
-    await this.applyScope(qb, user, query.dentistId);
+    await this.applyScope(filter, user, query);
 
-    if (query.status) qb.andWhere('invoice.status = :status', { status: query.status });
-    if (query.dateFrom) qb.andWhere('invoice.issueDate >= :dateFrom', { dateFrom: query.dateFrom });
-    if (query.dateTo) qb.andWhere('invoice.issueDate <= :dateTo', { dateTo: query.dateTo });
-    if (query.search) {
-      qb.andWhere('(invoice.number ILIKE :q OR case.reference ILIKE :q)', {
-        q: `%${query.search}%`,
-      });
+    if (query.dateFrom || query.dateTo) {
+      const issueDate: Record<string, string> = {};
+      if (query.dateFrom) issueDate.$gte = query.dateFrom;
+      if (query.dateTo) issueDate.$lte = query.dateTo;
+      filter.issueDate = issueDate;
     }
 
-    qb.orderBy('invoice.issueDate', 'DESC').addOrderBy('invoice.number', 'DESC').skip(skip).take(take);
-    const [data, total] = await qb.getManyAndCount();
+    if (query.search) {
+      const rx = regexContains(query.search);
+      // `case.reference` lives on another collection, so resolve the matching
+      // case ids first, then OR them with the invoice number.
+      const caseIds = await this.cases.find({ reference: rx }).distinct('_id').exec();
+      filter.$or = [{ number: rx }, { caseId: { $in: caseIds } }];
+    }
+
+    const [data, total] = await Promise.all([
+      this.invoices
+        .find(filter)
+        .populate({ path: 'dentist', populate: { path: 'user' } })
+        .populate('case')
+        .sort({ issueDate: -1, number: -1 })
+        .skip(skip)
+        .limit(take)
+        .exec(),
+      this.invoices.countDocuments(filter).exec(),
+    ]);
     return paginate(data, total, page, limit);
   }
 
+  /** Apply access scope + the status filter, which interact for dentists. */
   private async applyScope(
-    qb: SelectQueryBuilder<Invoice>,
+    filter: FilterQuery<Invoice>,
     user: AuthenticatedUser,
-    requestedDentistId?: string,
+    query: ListInvoicesDto,
   ): Promise<void> {
     if (this.isAdmin(user)) {
-      if (requestedDentistId) {
-        qb.andWhere('invoice.dentistId = :dentistId', { dentistId: requestedDentistId });
-      }
+      if (query.dentistId) filter.dentistId = query.dentistId;
+      if (query.status) filter.status = query.status;
       return;
     }
+
     const dentist = await this.dentistForUser(user.id);
-    qb.andWhere('invoice.dentistId = :ownDentistId', { ownDentistId: dentist.id });
+    filter.dentistId = dentist.id;
     // A dentist must never see a draft the lab has not issued yet.
-    qb.andWhere('invoice.status != :draft', { draft: InvoiceStatus.DRAFT });
+    if (query.status) {
+      filter.status = query.status === InvoiceStatus.DRAFT ? MATCH_NONE : query.status;
+    } else {
+      filter.status = { $ne: InvoiceStatus.DRAFT };
+    }
   }
 
   async findByIdOrFail(id: string): Promise<Invoice> {
-    const invoice = await this.invoices.findOne({ where: { id }, relations: DETAIL_RELATIONS });
+    const invoice = await this.invoices.findById(id).populate(DETAIL_POPULATE).exec();
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
   }
@@ -146,16 +173,13 @@ export class InvoicesService {
     currency: string;
     count: number;
   }> {
-    const qb = this.invoices
-      .createQueryBuilder('invoice')
-      .where('invoice.status IN (:...statuses)', { statuses: OUTSTANDING });
-
+    const filter: FilterQuery<Invoice> = { status: { $in: OUTSTANDING } };
     if (!this.isAdmin(user)) {
       const dentist = await this.dentistForUser(user.id);
-      qb.andWhere('invoice.dentistId = :dentistId', { dentistId: dentist.id });
+      filter.dentistId = dentist.id;
     }
 
-    const rows = await qb.getMany();
+    const rows = await this.invoices.find(filter).exec();
     const cents = rows.reduce((sum, invoice) => sum + this.toCents(invoice.total), 0);
     return {
       total: this.fromCents(cents),
@@ -168,15 +192,14 @@ export class InvoicesService {
 
   /** Build a draft invoice for one case, priced from the pricing rules. */
   async generateForCase(dto: GenerateInvoiceDto): Promise<Invoice> {
-    const entity = await this.cases.findOne({
-      where: { id: dto.caseId },
-      relations: { dentist: true, caseType: true },
-    });
+    const entity = await this.cases
+      .findById(dto.caseId)
+      .populate('dentist')
+      .populate('caseType')
+      .exec();
     if (!entity) throw new NotFoundException('Case not found');
 
-    const existing = await this.invoices.findOne({
-      where: { caseId: entity.id },
-    });
+    const existing = await this.invoices.findOne({ caseId: entity.id }).exec();
     if (existing) {
       throw new BadRequestException(
         `Case ${entity.reference} is already covered by invoice ${existing.number}`,
@@ -210,24 +233,38 @@ export class InvoicesService {
    * as a single batch invoice with one line per case.
    */
   async generateBatch(dto: GenerateBatchDto): Promise<{ created: number; invoice: Invoice | null }> {
-    const dentist = await this.dentists.findOne({ where: { id: dto.dentistId } });
+    const dentist = await this.dentists.findById(dto.dentistId).exec();
     if (!dentist) throw new NotFoundException('Dentist not found');
 
-    const qb = this.cases
-      .createQueryBuilder('c')
-      .leftJoinAndSelect('c.caseType', 'caseType')
-      .leftJoin('c.currentStatus', 'status')
-      .leftJoin('invoices', 'invoice', 'invoice.case_id = c.id AND invoice.deleted_at IS NULL')
-      .where('c.dentistId = :dentistId', { dentistId: dto.dentistId })
-      .andWhere('status.isTerminal = true')
-      .andWhere('invoice.id IS NULL');
+    const statuses = await this.catalog.listStatuses(true);
+    const terminalIds = statuses.filter((s) => s.isTerminal).map((s) => s.id);
+    // Cases already covered by a live (non-deleted) invoice are excluded.
+    const invoicedCaseIds = await this.invoices
+      .find({ caseId: { $ne: null } })
+      .distinct('caseId')
+      .exec();
 
-    if (dto.dateFrom) qb.andWhere('c.completedAt >= :dateFrom', { dateFrom: dto.dateFrom });
-    if (dto.dateTo) {
-      qb.andWhere("c.completedAt < (:dateTo::date + INTERVAL '1 day')", { dateTo: dto.dateTo });
+    const caseFilter: FilterQuery<DentalCase> = {
+      dentistId: dto.dentistId,
+      currentStatusId: { $in: terminalIds },
+      _id: { $nin: invoicedCaseIds },
+    };
+    if (dto.dateFrom || dto.dateTo) {
+      const completedAt: Record<string, Date> = {};
+      if (dto.dateFrom) completedAt.$gte = new Date(`${dto.dateFrom}T00:00:00.000Z`);
+      if (dto.dateTo) {
+        const end = new Date(`${dto.dateTo}T00:00:00.000Z`);
+        end.setUTCDate(end.getUTCDate() + 1);
+        completedAt.$lt = end;
+      }
+      caseFilter.completedAt = completedAt;
     }
 
-    const pending = await qb.orderBy('c.completedAt', 'ASC').getMany();
+    const pending = await this.cases
+      .find(caseFilter)
+      .populate('caseType')
+      .sort({ completedAt: 1 })
+      .exec();
     if (pending.length === 0) return { created: 0, invoice: null };
 
     const lines = await Promise.all(
@@ -288,40 +325,37 @@ export class InvoicesService {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + dueDays);
 
-    const created = await this.dataSource.transaction(async (manager) => {
-      const number = await allocateReference(manager, {
-        table: 'invoices',
-        column: 'number',
-        prefix: 'INV',
-      });
+    const created = await runInTransaction(this.connection, async (session) => {
+      const number = await allocateReference(this.counters, { prefix: 'INV' }, session);
 
-      const invoiceRepo = manager.getRepository(Invoice);
-      const invoice = await invoiceRepo.save(
-        invoiceRepo.create({
-          number,
-          dentistId: input.dentistId,
-          caseId: input.caseId,
-          issueDate: new Date().toISOString().slice(0, 10),
-          dueDate: dueDate.toISOString().slice(0, 10),
-          subtotal: this.fromCents(subtotalCents),
-          tax: this.fromCents(taxCents),
-          total: this.fromCents(totalCents),
-          currency: input.currency,
-          status: InvoiceStatus.DRAFT,
-        }),
+      const [invoice] = await this.invoices.create(
+        [
+          {
+            number,
+            dentistId: input.dentistId,
+            caseId: input.caseId,
+            issueDate: new Date().toISOString().slice(0, 10),
+            dueDate: dueDate.toISOString().slice(0, 10),
+            subtotal: this.fromCents(subtotalCents),
+            tax: this.fromCents(taxCents),
+            total: this.fromCents(totalCents),
+            currency: input.currency,
+            status: InvoiceStatus.DRAFT,
+          },
+        ],
+        { session },
       );
 
-      const itemRepo = manager.getRepository(InvoiceLineItem);
-      await itemRepo.save(
-        input.lines.map((line) =>
-          itemRepo.create({
-            invoiceId: invoice.id,
-            description: line.description,
-            quantity: line.quantity,
-            unitPrice: line.unitPrice,
-            total: this.fromCents(this.toCents(line.unitPrice) * line.quantity),
-          }),
-        ),
+      await this.lineItems.create(
+        input.lines.map((line) => ({
+          invoiceId: invoice.id,
+          description: line.description,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          total: this.fromCents(this.toCents(line.unitPrice) * line.quantity),
+        })),
+        // Mongoose requires ordered inserts when creating multiple docs in a session.
+        { session, ordered: true },
       );
 
       return invoice;
@@ -339,7 +373,7 @@ export class InvoicesService {
       throw new BadRequestException(`Invoice ${invoice.number} has already been issued`);
     }
 
-    await this.invoices.update(id, { status: InvoiceStatus.ISSUED });
+    await this.invoices.updateOne({ _id: id }, { status: InvoiceStatus.ISSUED }).exec();
     const issued = await this.findByIdOrFail(id);
     await this.renderAndStorePdf(issued);
 
@@ -380,21 +414,24 @@ export class InvoicesService {
       throw new BadRequestException('A refunded invoice cannot be marked paid');
     }
     // Only an issued invoice can be settled. A draft has never been sent to the
-    // dentist, so marking it paid — rendering a PAID stamp and emailing a
-    // receipt — would skip the issue step and strand an invoice that can no
-    // longer be issued (issue() requires DRAFT). The Stripe path already
-    // enforces this precondition; the manual admin path did not.
+    // dentist, so marking it paid would skip the issue step and strand an
+    // invoice that can no longer be issued.
     if (invoice.status !== InvoiceStatus.ISSUED) {
       throw new BadRequestException('Only an issued invoice can be marked paid');
     }
 
-    await this.invoices.update(id, {
-      status: InvoiceStatus.PAID,
-      paidAt: new Date(),
-      ...(options.stripePaymentIntentId && {
-        stripePaymentIntentId: options.stripePaymentIntentId,
-      }),
-    });
+    await this.invoices
+      .updateOne(
+        { _id: id },
+        {
+          status: InvoiceStatus.PAID,
+          paidAt: new Date(),
+          ...(options.stripePaymentIntentId && {
+            stripePaymentIntentId: options.stripePaymentIntentId,
+          }),
+        },
+      )
+      .exec();
 
     const paid = await this.findByIdOrFail(id);
     // The cached PDF shows a PAID stamp, so it must be re-rendered.
@@ -424,7 +461,7 @@ export class InvoicesService {
     if (invoice.status === InvoiceStatus.PAID) {
       throw new BadRequestException('A paid invoice cannot be cancelled — refund it instead');
     }
-    await this.invoices.update(id, { status: InvoiceStatus.CANCELLED });
+    await this.invoices.updateOne({ _id: id }, { status: InvoiceStatus.CANCELLED }).exec();
     return this.findByIdOrFail(id);
   }
 
@@ -439,43 +476,41 @@ export class InvoicesService {
     if (invoice.status !== InvoiceStatus.PAID) {
       throw new BadRequestException('Only a paid invoice can be refunded');
     }
-    await this.invoices.update(id, { status: InvoiceStatus.REFUNDED });
+    await this.invoices.updateOne({ _id: id }, { status: InvoiceStatus.REFUNDED }).exec();
     return this.findByIdOrFail(id);
   }
 
   /**
    * Take exclusive ownership of the PAID → REFUNDED transition.
    *
-   * The condition lives in the UPDATE rather than in a preceding SELECT because
-   * a read-then-write pair lets two concurrent refunds both observe PAID and
-   * both go on to charge Stripe. Here the database decides: exactly one caller
-   * sees `affected === 1`, and only that caller may issue the refund.
+   * The condition lives in the update filter rather than in a preceding read
+   * because a read-then-write pair lets two concurrent refunds both observe
+   * PAID and both go on to charge Stripe. Here the database decides: exactly one
+   * caller sees `modifiedCount === 1`, and only that caller may issue the refund.
    */
   async claimRefund(id: string): Promise<boolean> {
-    const result = await this.invoices.update(
-      { id, status: InvoiceStatus.PAID },
-      { status: InvoiceStatus.REFUNDED },
-    );
-    return result.affected === 1;
+    const result = await this.invoices
+      .updateOne({ _id: id, status: InvoiceStatus.PAID }, { status: InvoiceStatus.REFUNDED })
+      .exec();
+    return result.modifiedCount === 1;
   }
 
   /** Hand the claim back when the refund could not be completed after all. */
   async releaseRefundClaim(id: string): Promise<void> {
-    await this.invoices.update(
-      { id, status: InvoiceStatus.REFUNDED },
-      { status: InvoiceStatus.PAID },
-    );
+    await this.invoices
+      .updateOne({ _id: id, status: InvoiceStatus.REFUNDED }, { status: InvoiceStatus.PAID })
+      .exec();
   }
 
   async findByPaymentIntent(paymentIntentId: string): Promise<Invoice | null> {
-    return this.invoices.findOne({
-      where: { stripePaymentIntentId: paymentIntentId },
-      relations: DETAIL_RELATIONS,
-    });
+    return this.invoices
+      .findOne({ stripePaymentIntentId: paymentIntentId })
+      .populate(DETAIL_POPULATE)
+      .exec();
   }
 
   async attachPaymentIntent(id: string, paymentIntentId: string): Promise<void> {
-    await this.invoices.update(id, { stripePaymentIntentId: paymentIntentId });
+    await this.invoices.updateOne({ _id: id }, { stripePaymentIntentId: paymentIntentId }).exec();
   }
 
   // ── PDF ───────────────────────────────────────────────────────────────────
@@ -484,13 +519,13 @@ export class InvoicesService {
   async renderAndStorePdf(invoice: Invoice): Promise<Buffer> {
     const buffer = await this.pdf.invoice({
       invoice,
-      dentist: invoice.dentist,
+      dentist: invoice.dentist!,
       payUrl: `${this.app.webUrl}/invoices/${invoice.id}`,
     });
     const path = this.storage.invoicePdfPath(invoice.id);
     await this.storage.save(path, buffer);
     if (invoice.pdfPath !== path) {
-      await this.invoices.update(invoice.id, { pdfPath: path });
+      await this.invoices.updateOne({ _id: invoice.id }, { pdfPath: path }).exec();
     }
     return buffer;
   }
@@ -512,10 +547,10 @@ export class InvoicesService {
 
   /** Invoices belonging to a dentist within a period — used by statements. */
   async forPeriod(dentistId: string, from: string, to: string): Promise<Invoice[]> {
-    return this.invoices.find({
-      where: { dentistId, deletedAt: IsNull() },
-      relations: { lineItems: true },
-      order: { issueDate: 'ASC' },
-    }).then((rows) => rows.filter((i) => i.issueDate >= from && i.issueDate <= to));
+    return this.invoices
+      .find({ dentistId, issueDate: { $gte: from, $lte: to } })
+      .populate('lineItems')
+      .sort({ issueDate: 1 })
+      .exec();
   }
 }

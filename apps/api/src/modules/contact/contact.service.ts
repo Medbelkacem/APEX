@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
+import { FilterQuery, Model } from 'mongoose';
 import { ContactMessage } from '../../database/entities';
 import { MailService } from '../../mail/mail.service';
 import { MailConfig } from '../../config/mail';
@@ -12,21 +12,19 @@ import { CreateContactDto, ListContactDto } from './contact.dto';
 @Injectable()
 export class ContactService {
   constructor(
-    @InjectRepository(ContactMessage) private readonly repo: Repository<ContactMessage>,
+    @InjectModel(ContactMessage.name) private readonly repo: Model<ContactMessage>,
     private readonly mail: MailService,
     private readonly config: ConfigService,
   ) {}
 
   async create(dto: CreateContactDto, ipAddress: string | null): Promise<ContactMessage> {
-    const message = await this.repo.save(
-      this.repo.create({
-        name: dto.name,
-        email: dto.email,
-        subject: dto.subject,
-        message: dto.message,
-        ipAddress,
-      }),
-    );
+    const message = await this.repo.create({
+      name: dto.name,
+      email: dto.email,
+      subject: dto.subject,
+      message: dto.message,
+      ipAddress,
+    });
 
     // Notify the lab inbox (fire-and-forget via the email queue).
     const mailCfg = this.config.get<MailConfig>('mail')!;
@@ -38,22 +36,25 @@ export class ContactService {
 
   async list(query: ListContactDto): Promise<Paginated<ContactMessage>> {
     const { skip, take, page, limit } = resolvePagination(query.page, query.limit);
-    const qb = this.repo.createQueryBuilder('c');
-    if (query.handled !== undefined) qb.andWhere('c.isHandled = :h', { h: query.handled });
-    qb.orderBy('c.createdAt', 'DESC').skip(skip).take(take);
-    const [data, total] = await qb.getManyAndCount();
+    const filter: FilterQuery<ContactMessage> = {};
+    if (query.handled !== undefined) filter.isHandled = query.handled;
+
+    const [data, total] = await Promise.all([
+      this.repo.find(filter).sort({ createdAt: -1 }).skip(skip).limit(take).exec(),
+      this.repo.countDocuments(filter).exec(),
+    ]);
     return paginate(data, total, page, limit);
   }
 
   async markHandled(id: string): Promise<ContactMessage> {
-    const msg = await this.repo.findOne({ where: { id } });
+    const msg = await this.repo.findById(id).exec();
     if (!msg) throw new NotFoundException('Message not found');
     msg.isHandled = true;
-    return this.repo.save(msg);
+    return msg.save();
   }
 
   async remove(id: string): Promise<void> {
-    const res = await this.repo.delete(id);
-    if (!res.affected) throw new NotFoundException('Message not found');
+    const res = await this.repo.deleteOne({ _id: id }).exec();
+    if (!res.deletedCount) throw new NotFoundException('Message not found');
   }
 }

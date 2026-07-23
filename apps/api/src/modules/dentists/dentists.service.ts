@@ -4,12 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, QueryFailedError, Repository } from 'typeorm';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, FilterQuery, Model } from 'mongoose';
 import { UserRole, UserStatus } from '@dental/shared-types';
-import { Dentist, User } from '../../database/entities';
+import { Dentist, DentistDocument, User } from '../../database/entities';
+import { runInTransaction } from '../../database/base.schema';
 import { UsersService } from '../users/users.service';
 import { AccountEmailsService } from '../../mail/account-emails.service';
+import { regexContains } from '../../common/utils/mongo';
 import { Paginated, paginate, resolvePagination } from '../../common/utils/pagination';
 import {
   CreateDentistDto,
@@ -25,19 +27,17 @@ import {
  */
 const EMAIL_VERIFICATION_TTL_SECONDS = 24 * 3600;
 
-/** Postgres unique-constraint violation — a duplicate key insert. */
+/** MongoDB duplicate-key violation — a unique index rejected the insert. */
 function isUniqueViolation(err: unknown): boolean {
-  return (
-    err instanceof QueryFailedError &&
-    (err.driverError as { code?: string } | undefined)?.code === '23505'
-  );
+  return (err as { code?: number } | undefined)?.code === 11000;
 }
 
 @Injectable()
 export class DentistsService {
   constructor(
-    @InjectRepository(Dentist) private readonly dentists: Repository<Dentist>,
-    private readonly dataSource: DataSource,
+    @InjectModel(Dentist.name) private readonly dentists: Model<Dentist>,
+    @InjectModel(User.name) private readonly userModel: Model<User>,
+    @InjectConnection() private readonly connection: Connection,
     private readonly users: UsersService,
     private readonly accountEmails: AccountEmailsService,
   ) {}
@@ -46,31 +46,35 @@ export class DentistsService {
   async create(dto: CreateDentistDto): Promise<Dentist> {
     const email = dto.email.toLowerCase().trim();
 
-    const dentist = await this.dataSource.transaction(async (manager) => {
-      const userRepo = manager.getRepository(User);
-      if (await userRepo.findOne({ where: { email } })) {
+    const dentist = await runInTransaction(this.connection, async (session) => {
+      if (await this.userModel.findOne({ email }).session(session ?? null).exec()) {
         throw new ConflictException('A user with this email already exists');
       }
-      const user = await userRepo.save(
-        userRepo.create({
-          email,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          phone: dto.phone ?? null,
-          role: UserRole.DENTIST,
-          status: UserStatus.INVITED,
-        }),
+      const [user] = await this.userModel.create(
+        [
+          {
+            email,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            phone: dto.phone ?? null,
+            role: UserRole.DENTIST,
+            status: UserStatus.INVITED,
+          },
+        ],
+        { session },
       );
-      const dentistRepo = manager.getRepository(Dentist);
-      const saved = await dentistRepo.save(
-        dentistRepo.create({
-          userId: user.id,
-          clinicName: dto.clinicName ?? null,
-          clinicAddress: dto.clinicAddress ?? null,
-          billingAddress: dto.billingAddress ?? null,
-          tier: dto.tier ?? null,
-          notes: dto.notes ?? null,
-        }),
+      const [saved] = await this.dentists.create(
+        [
+          {
+            userId: user.id,
+            clinicName: dto.clinicName ?? null,
+            clinicAddress: dto.clinicAddress ?? null,
+            billingAddress: dto.billingAddress ?? null,
+            tier: dto.tier ?? null,
+            notes: dto.notes ?? null,
+          },
+        ],
+        { session },
       );
       saved.user = user;
       return saved;
@@ -78,7 +82,7 @@ export class DentistsService {
 
     // Invitation token valid for 7 days (first-login setup link).
     const token = await this.users.issueResetToken(dentist.userId, 7 * 24 * 3600);
-    await this.accountEmails.sendInvitation(dentist.user, token);
+    await this.accountEmails.sendInvitation(dentist.user!, token);
     return dentist;
   }
 
@@ -95,7 +99,7 @@ export class DentistsService {
   async register(dto: RegisterDentistDto): Promise<void> {
     const email = dto.email.toLowerCase().trim();
 
-    const existing = await this.dataSource.getRepository(User).findOne({ where: { email } });
+    const existing = await this.userModel.findOne({ email }).exec();
     if (existing) {
       await this.accountEmails.sendRegistrationAttempted(existing);
       return;
@@ -103,28 +107,32 @@ export class DentistsService {
 
     let dentist: Dentist;
     try {
-      dentist = await this.dataSource.transaction(async (manager) => {
-        const userRepo = manager.getRepository(User);
-        const user = await userRepo.save(
-          userRepo.create({
-            email,
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            phone: dto.phone ?? null,
-            passwordHash: await this.users.hashPassword(dto.password),
-            role: UserRole.DENTIST,
-            // Pending with no verification stamp: unconfirmed address.
-            status: UserStatus.PENDING,
-            emailVerifiedAt: null,
-          }),
+      dentist = await runInTransaction(this.connection, async (session) => {
+        const [user] = await this.userModel.create(
+          [
+            {
+              email,
+              firstName: dto.firstName,
+              lastName: dto.lastName,
+              phone: dto.phone ?? null,
+              passwordHash: await this.users.hashPassword(dto.password),
+              role: UserRole.DENTIST,
+              // Pending with no verification stamp: unconfirmed address.
+              status: UserStatus.PENDING,
+              emailVerifiedAt: null,
+            },
+          ],
+          { session },
         );
-        const dentistRepo = manager.getRepository(Dentist);
-        const saved = await dentistRepo.save(
-          dentistRepo.create({
-            userId: user.id,
-            clinicName: dto.clinicName ?? null,
-            clinicAddress: dto.clinicAddress ?? null,
-          }),
+        const [saved] = await this.dentists.create(
+          [
+            {
+              userId: user.id,
+              clinicName: dto.clinicName ?? null,
+              clinicAddress: dto.clinicAddress ?? null,
+            },
+          ],
+          { session },
         );
         saved.user = user;
         return saved;
@@ -143,7 +151,7 @@ export class DentistsService {
       dentist.userId,
       EMAIL_VERIFICATION_TTL_SECONDS,
     );
-    await this.accountEmails.sendEmailVerification(dentist.user, token);
+    await this.accountEmails.sendEmailVerification(dentist.user!, token);
   }
 
   /**
@@ -163,7 +171,7 @@ export class DentistsService {
     // Only tell the lab the first time; re-opening the link is not a new
     // application, and a queue that pages people twice stops being read.
     if (wasUnverified && user.status === UserStatus.PENDING) {
-      const dentist = await this.dentists.findOne({ where: { userId } });
+      const dentist = await this.dentists.findOne({ userId }).exec();
       await this.accountEmails.sendRegistrationPendingReview(await this.reviewerEmails(), {
         dentistName: `${user.firstName} ${user.lastName}`.trim(),
         email: user.email,
@@ -218,44 +226,68 @@ export class DentistsService {
 
   /** Email addresses of everyone who can action an approval queue. */
   async reviewerEmails(): Promise<string[]> {
-    const admins = await this.dataSource.getRepository(User).find({
-      where: [
-        { role: UserRole.ADMIN, status: UserStatus.ACTIVE },
-        { role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE },
-      ],
-    });
+    const admins = await this.userModel
+      .find({ role: { $in: [UserRole.ADMIN, UserRole.SUPER_ADMIN] }, status: UserStatus.ACTIVE })
+      .exec();
     return admins.map((a) => a.email);
   }
 
   async list(query: ListDentistsDto): Promise<Paginated<Dentist>> {
     const { skip, take, page, limit } = resolvePagination(query.page, query.limit);
-    const qb = this.dentists
-      .createQueryBuilder('dentist')
-      .leftJoinAndSelect('dentist.user', 'user');
-    if (query.status) qb.andWhere('user.status = :status', { status: query.status });
+
+    // `status` and `search` both constrain the linked User, so resolve the set
+    // of matching user ids first, then filter dentists — keeping the result a
+    // hydrated Dentist query whose populated user serializes through the schema
+    // transform (which strips secrets), rather than a raw aggregation.
+    const filter: FilterQuery<Dentist> = {};
+
     if (query.search) {
-      qb.andWhere(
-        '(user.email ILIKE :q OR user.firstName ILIKE :q OR user.lastName ILIKE :q OR dentist.clinicName ILIKE :q)',
-        { q: `%${query.search}%` },
-      );
+      const rx = regexContains(query.search);
+      const userFilter: FilterQuery<User> = {
+        $or: [{ email: rx }, { firstName: rx }, { lastName: rx }],
+      };
+      if (query.status) userFilter.status = query.status;
+      const searchUserIds = await this.userModel.find(userFilter).distinct('_id').exec();
+
+      const clinicBranch: FilterQuery<Dentist> = { clinicName: rx };
+      if (query.status) {
+        const statusUserIds = await this.userModel
+          .find({ status: query.status })
+          .distinct('_id')
+          .exec();
+        clinicBranch.userId = { $in: statusUserIds };
+      }
+      filter.$or = [{ userId: { $in: searchUserIds } }, clinicBranch];
+    } else if (query.status) {
+      const statusUserIds = await this.userModel
+        .find({ status: query.status })
+        .distinct('_id')
+        .exec();
+      filter.userId = { $in: statusUserIds };
     }
-    qb.orderBy('dentist.createdAt', 'DESC').skip(skip).take(take);
-    const [data, total] = await qb.getManyAndCount();
+
+    const [data, total] = await Promise.all([
+      this.dentists
+        .find(filter)
+        .populate('user')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(take)
+        .exec(),
+      this.dentists.countDocuments(filter).exec(),
+    ]);
     return paginate(data, total, page, limit);
   }
 
-  async findByIdOrFail(id: string): Promise<Dentist> {
-    const dentist = await this.dentists.findOne({ where: { id }, relations: { user: true } });
+  async findByIdOrFail(id: string): Promise<DentistDocument> {
+    const dentist = await this.dentists.findById(id).populate('user').exec();
     if (!dentist) throw new NotFoundException('Dentist not found');
     return dentist;
   }
 
   /** Resolve the dentist record for a given user id (portal "own data" access). */
   async findByUserId(userId: string): Promise<Dentist> {
-    const dentist = await this.dentists.findOne({
-      where: { userId },
-      relations: { user: true },
-    });
+    const dentist = await this.dentists.findOne({ userId }).populate('user').exec();
     if (!dentist) throw new NotFoundException('Dentist profile not found');
     return dentist;
   }
@@ -276,7 +308,7 @@ export class DentistsService {
     if (dto.billingAddress !== undefined) dentist.billingAddress = dto.billingAddress;
     if (dto.tier !== undefined) dentist.tier = dto.tier;
     if (dto.notes !== undefined) dentist.notes = dto.notes;
-    await this.dentists.save(dentist);
+    await dentist.save();
 
     return this.findByIdOrFail(id);
   }
@@ -312,6 +344,6 @@ export class DentistsService {
   async sendPasswordReset(id: string): Promise<void> {
     const dentist = await this.findByIdOrFail(id);
     const token = await this.users.issueResetToken(dentist.userId);
-    await this.accountEmails.sendPasswordReset(dentist.user, token);
+    await this.accountEmails.sendPasswordReset(dentist.user!, token);
   }
 }

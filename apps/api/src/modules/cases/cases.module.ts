@@ -1,9 +1,20 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
 import { MulterModule } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { memoryStorage } from 'multer';
-import { CaseFile, CaseStatusHistory, DentalCase, Dentist } from '../../database/entities';
+import {
+  CaseFile,
+  CaseFileSchema,
+  CaseStatusHistory,
+  CaseStatusHistorySchema,
+  Counter,
+  CounterSchema,
+  DentalCase,
+  DentalCaseSchema,
+  Dentist,
+  DentistSchema,
+} from '../../database/entities';
 import { StorageConfig } from '../../config/storage';
 import { CatalogModule } from '../catalog/catalog.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -13,7 +24,13 @@ import { CasesController } from './cases.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DentalCase, CaseStatusHistory, CaseFile, Dentist]),
+    MongooseModule.forFeature([
+      { name: DentalCase.name, schema: DentalCaseSchema },
+      { name: CaseStatusHistory.name, schema: CaseStatusHistorySchema },
+      { name: CaseFile.name, schema: CaseFileSchema },
+      { name: Dentist.name, schema: DentistSchema },
+      { name: Counter.name, schema: CounterSchema },
+    ]),
     // Uploads are buffered in memory so the magic-byte sniff can run before
     // anything touches disk; the hard cap here is a backstop — per-category
     // limits are enforced in file-validation.ts.

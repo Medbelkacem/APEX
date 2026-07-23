@@ -1,33 +1,36 @@
 import { registerAs } from '@nestjs/config';
-import { TypeOrmModuleOptions } from '@nestjs/typeorm';
-import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
-import { entities } from '../database/entities';
+import { MongooseModuleFactoryOptions } from '@nestjs/mongoose';
 
-const useSsl = ['1', 'true', 'yes', 'on'].includes(
-  (process.env.DB_SSL ?? 'false').toLowerCase(),
-);
+/** Assemble the MongoDB connection string from discrete parts when no URI is given. */
+export function resolveMongoUri(): string {
+  if (process.env.MONGODB_URI) return process.env.MONGODB_URI;
+
+  const host = process.env.MONGO_HOST ?? 'localhost';
+  const port = process.env.MONGO_PORT ?? '27017';
+  const db = process.env.MONGO_DB ?? 'dental';
+  const user = process.env.MONGO_USER ?? '';
+  const password = process.env.MONGO_PASSWORD ?? '';
+  const credentials = user ? `${encodeURIComponent(user)}:${encodeURIComponent(password)}@` : '';
+  // directConnection keeps a single-node replica set reachable without SRV/seedlist
+  // discovery — the shape both the docker stack and the in-memory dev/test server use.
+  const params = new URLSearchParams({ directConnection: 'true' });
+  if (process.env.MONGO_REPLICA_SET) params.set('replicaSet', process.env.MONGO_REPLICA_SET);
+  if (credentials) params.set('authSource', process.env.MONGO_AUTH_SOURCE ?? 'admin');
+  return `mongodb://${credentials}${host}:${port}/${db}?${params.toString()}`;
+}
 
 /**
- * TypeORM options for the Nest application. Migrations are run via the CLI
- * data-source (see database/data-source.ts) — `synchronize` is always OFF so
- * the schema is only ever changed through versioned, reversible migrations.
+ * Mongoose options for the Nest application. Schemas own their own indexes;
+ * `autoIndex` builds them on connect (the dataset is small enough that this is
+ * cheaper than a separate migration step).
  */
 export const databaseConfig = registerAs(
   'database',
-  (): TypeOrmModuleOptions => ({
-    type: 'postgres',
-    host: process.env.DB_HOST ?? 'localhost',
-    port: Number(process.env.DB_PORT ?? 5432),
-    username: process.env.DB_USER ?? 'dental',
-    password: process.env.DB_PASSWORD ?? 'dental',
-    database: process.env.DB_NAME ?? 'dental',
-    ssl: useSsl ? { rejectUnauthorized: false } : false,
-    entities,
-    namingStrategy: new SnakeNamingStrategy(),
-    synchronize: false,
-    migrationsRun: false,
-    autoLoadEntities: true,
-    logging: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  (): MongooseModuleFactoryOptions => ({
+    uri: resolveMongoUri(),
+    autoIndex: true,
+    // Fail fast instead of buffering commands for 10s when Mongo is unreachable.
+    serverSelectionTimeoutMS: 5000,
   }),
 );
 
