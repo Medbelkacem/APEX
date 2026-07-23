@@ -1,26 +1,34 @@
-import { Column, Entity, Index, OneToMany } from 'typeorm';
-import { SoftDeleteEntity } from './base.entity';
-import { DentalCase } from './case.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { SoftDeleteDocument, applySoftDelete, baseSchemaOptions } from '../base.schema';
 
 /** Catalog of dental case types (Crown, Bridge, Implant, ...). */
-@Entity('case_types')
-export class CaseType extends SoftDeleteEntity {
-  @Column({ type: 'varchar', length: 120 })
+@Schema(baseSchemaOptions('case_types'))
+export class CaseType extends SoftDeleteDocument {
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 140 })
+  @Prop({ type: String, required: true, unique: true })
   slug: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Prop({ type: String, default: null })
   description: string | null;
 
-  @Column({ type: 'boolean', default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
-  @Column({ type: 'int', default: 0 })
+  @Prop({ type: Number, default: 0 })
   sortOrder: number;
 
-  @OneToMany(() => DentalCase, (c) => c.caseType)
-  cases?: DentalCase[];
+  declare cases?: import('./case.entity').DentalCase[];
 }
+
+export type CaseTypeDocument = HydratedDocument<CaseType>;
+export const CaseTypeSchema = SchemaFactory.createForClass(CaseType);
+applySoftDelete(CaseTypeSchema);
+
+CaseTypeSchema.virtual('cases', {
+  ref: 'DentalCase',
+  localField: '_id',
+  foreignField: 'caseTypeId',
+});

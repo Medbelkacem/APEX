@@ -1,27 +1,25 @@
-import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { BaseDocument, baseSchemaOptions } from '../base.schema';
 
 /** Key/value store for global platform configuration (secrets encrypted). */
-@Entity('platform_settings')
-export class PlatformSetting {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
+@Schema(baseSchemaOptions('platform_settings'))
+export class PlatformSetting extends BaseDocument {
   /** e.g. stripe.secret_key, smtp.host. */
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 160 })
+  @Prop({ type: String, required: true, unique: true })
   key: string;
 
   /** Text; encrypted at rest for secret keys. */
-  @Column({ type: 'text', nullable: true })
+  @Prop({ type: String, default: null })
   value: string | null;
 
   /** Whether `value` is stored encrypted (redacted when listed via the API). */
-  @Column({ type: 'boolean', default: false })
+  @Prop({ type: Boolean, default: false })
   isSecret: boolean;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Prop({ type: String, default: null })
   updatedByUserId: string | null;
-
-  @UpdateDateColumn({ type: 'timestamptz' })
-  updatedAt: Date;
 }
+
+export type PlatformSettingDocument = HydratedDocument<PlatformSetting>;
+export const PlatformSettingSchema = SchemaFactory.createForClass(PlatformSetting);

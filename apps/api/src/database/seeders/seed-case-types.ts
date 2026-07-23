@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { Model } from 'mongoose';
 import { CaseType } from '../entities';
 
 /** Default catalog of dental case types. Idempotent by slug. */
@@ -12,12 +12,11 @@ const DEFAULTS: Array<Partial<CaseType>> = [
   { name: 'Inlay / Onlay', slug: 'inlay-onlay', description: 'Indirect inlay or onlay.', sortOrder: 7 },
 ];
 
-export async function seedCaseTypes(ds: DataSource): Promise<void> {
-  const repo = ds.getRepository(CaseType);
+export async function seedCaseTypes(repo: Model<CaseType>): Promise<void> {
   for (const data of DEFAULTS) {
-    const existing = await repo.findOne({ where: { slug: data.slug } });
+    const existing = await repo.findOne({ slug: data.slug }).exec();
     if (existing) continue;
-    await repo.save(repo.create({ ...data, isActive: true }));
+    await repo.create({ ...data, isActive: true });
   }
   // eslint-disable-next-line no-console
   console.log(`  ✓ case types seeded (${DEFAULTS.length})`);

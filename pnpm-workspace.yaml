@@ -2,11 +2,11 @@ packages:
   - "apps/*"
   - "packages/*"
 
-# Build-script allow-list. The embedded-postgres platform binary needs its
-# postinstall to become runnable. The others are optional accelerators that
-# fall back to pure JS, so they stay disabled.
+# Build-script allow-list. mongodb-memory-server's postinstall pre-downloads the
+# mongod binary the e2e suite (and `pnpm db:local`) run against. The others are
+# optional accelerators that fall back to pure JS, so they stay disabled.
 allowBuilds:
-  "@embedded-postgres/linux-x64": true
+  mongodb-memory-server: true
   # Vitest runs the web test suite through esbuild; without its postinstall the
   # platform binary is never unpacked and every run fails to start.
   esbuild: true

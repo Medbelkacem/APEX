@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
+import { Model } from 'mongoose';
 import { Readable } from 'stream';
 import { AuthenticatedUser, CaseFileType, UserRole } from '@dental/shared-types';
 import { CaseFile } from '../../database/entities';
@@ -19,7 +19,7 @@ export interface IncomingFile {
 @Injectable()
 export class CaseFilesService {
   constructor(
-    @InjectRepository(CaseFile) private readonly files: Repository<CaseFile>,
+    @InjectModel(CaseFile.name) private readonly files: Model<CaseFile>,
     private readonly storage: StorageService,
     private readonly cases: CasesService,
     private readonly config: ConfigService,
@@ -37,11 +37,7 @@ export class CaseFilesService {
 
   async list(caseId: string, user: AuthenticatedUser): Promise<CaseFile[]> {
     await this.cases.findScoped(caseId, user);
-    return this.files.find({
-      where: { caseId },
-      relations: { uploadedByUser: true },
-      order: { createdAt: 'ASC' },
-    });
+    return this.files.find({ caseId }).populate('uploadedByUser').sort({ createdAt: 1 }).exec();
   }
 
   /**
@@ -77,17 +73,15 @@ export class CaseFilesService {
       await this.storage.save(path, file.buffer);
 
       saved.push(
-        await this.files.save(
-          this.files.create({
-            caseId: entity.id,
-            fileType: fileTypeHint ?? spec.fileType,
-            originalFilename: file.originalname,
-            storedPath: path,
-            mimeType: spec.mimeType,
-            sizeBytes: file.buffer.length,
-            uploadedByUserId: user.id,
-          }),
-        ),
+        await this.files.create({
+          caseId: entity.id,
+          fileType: fileTypeHint ?? spec.fileType,
+          originalFilename: file.originalname,
+          storedPath: path,
+          mimeType: spec.mimeType,
+          sizeBytes: file.buffer.length,
+          uploadedByUserId: user.id,
+        }),
       );
     }
     return saved;
@@ -100,7 +94,7 @@ export class CaseFilesService {
     user: AuthenticatedUser,
   ): Promise<{ file: CaseFile; stream: Readable }> {
     await this.cases.findScoped(caseId, user);
-    const file = await this.files.findOne({ where: { id: fileId, caseId } });
+    const file = await this.files.findOne({ _id: fileId, caseId }).exec();
     if (!file) throw new NotFoundException('File not found');
 
     if (!(await this.storage.exists(file.storedPath))) {
@@ -115,7 +109,7 @@ export class CaseFilesService {
    */
   async remove(caseId: string, fileId: string, user: AuthenticatedUser): Promise<void> {
     await this.cases.findScoped(caseId, user);
-    const file = await this.files.findOne({ where: { id: fileId, caseId } });
+    const file = await this.files.findOne({ _id: fileId, caseId }).exec();
     if (!file) throw new NotFoundException('File not found');
 
     if (!this.isAdmin(user)) {
@@ -124,7 +118,7 @@ export class CaseFilesService {
       }
     }
 
-    await this.files.delete(file.id);
+    await this.files.deleteOne({ _id: file.id }).exec();
     // Best-effort blob cleanup — the row is already gone, so a storage hiccup
     // must not surface as a failed request.
     await this.storage.delete(file.storedPath).catch(() => undefined);

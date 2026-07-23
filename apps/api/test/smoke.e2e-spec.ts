@@ -22,15 +22,14 @@ describe('e2e harness', () => {
   });
 
   it('boots the application against the test database', () => {
-    expect(ctx.dataSource.isInitialized).toBe(true);
-    expect(ctx.dataSource.options.database).toBe('dental_test');
+    // 1 === connected (mongoose ConnectionStates.connected).
+    expect(ctx.connection.readyState).toBe(1);
+    expect(ctx.connection.name).toBe('dental_test');
   });
 
-  it('has applied the migrations', async () => {
-    const tables: { tablename: string }[] = await ctx.dataSource.query(
-      `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`,
-    );
-    const names = tables.map((t) => t.tablename);
+  it('has created the collections', async () => {
+    const collections = await ctx.connection.db!.listCollections().toArray();
+    const names = collections.map((c) => c.name);
     expect(names).toEqual(expect.arrayContaining(['users', 'cases', 'invoices']));
   });
 
@@ -44,9 +43,9 @@ describe('e2e harness', () => {
     expect(res.status).toBe(401);
   });
 
-  it('can truncate between tests without dropping the schema', async () => {
-    await truncateAll(ctx.dataSource);
-    const [{ count }] = await ctx.dataSource.query(`SELECT COUNT(*)::int AS count FROM users`);
+  it('can truncate between tests without dropping the collections', async () => {
+    await truncateAll(ctx.connection);
+    const count = await ctx.connection.model('User').countDocuments().exec();
     expect(count).toBe(0);
   });
 });

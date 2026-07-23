@@ -25,12 +25,10 @@ export const TEST_STORAGE_ROOT = resolve(__dirname, '../.tmp-storage');
 export const TEST_DB_NAME = process.env.TEST_DB_NAME ?? 'dental_test';
 
 process.env.NODE_ENV = 'test';
-process.env.DB_NAME = TEST_DB_NAME;
 
-withDefault('DB_HOST', 'localhost');
-withDefault('DB_PORT', '5432');
-withDefault('DB_USER', 'dental');
-withDefault('DB_PASSWORD', 'dental');
+// The MongoDB connection string is provided by globalSetup (an in-memory
+// replica set) and inherited by every worker via process.env; nothing to set
+// here. TEST_DB_NAME is used as that server's database name.
 
 // No external infrastructure: jobs run in-process and mail is written to the
 // logger instead of an SMTP socket.

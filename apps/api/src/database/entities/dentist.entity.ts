@@ -1,43 +1,52 @@
-import { Column, Entity, JoinColumn, OneToMany, OneToOne } from 'typeorm';
-import { SoftDeleteEntity } from './base.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { SoftDeleteDocument, applySoftDelete, baseSchemaOptions } from '../base.schema';
 import { User } from './user.entity';
-import { DentalCase } from './case.entity';
-import { Invoice } from './invoice.entity';
-import { MonthlyStatement } from './monthly-statement.entity';
 
 /** Profile data specific to a dentist user. 1-to-1 with User. */
-@Entity('dentists')
-export class Dentist extends SoftDeleteEntity {
-  @Column({ type: 'uuid' })
+@Schema(baseSchemaOptions('dentists'))
+export class Dentist extends SoftDeleteDocument {
+  @Prop({ type: String, ref: 'User', required: true, unique: true })
   userId: string;
 
-  @OneToOne(() => User, (user) => user.dentist, { onDelete: 'CASCADE' })
-  @JoinColumn()
-  user: User;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Prop({ type: String, default: null })
   clinicName: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Prop({ type: String, default: null })
   clinicAddress: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Prop({ type: String, default: null })
   billingAddress: string | null;
 
   /** Pricing tier — optional, referenced by PricingRule.dentistTier. */
-  @Column({ type: 'varchar', length: 60, nullable: true })
+  @Prop({ type: String, default: null })
   tier: string | null;
 
   /** Internal, lab-only notes. */
-  @Column({ type: 'text', nullable: true })
+  @Prop({ type: String, default: null })
   notes: string | null;
 
-  @OneToMany(() => DentalCase, (c) => c.dentist)
-  cases?: DentalCase[];
-
-  @OneToMany(() => Invoice, (i) => i.dentist)
-  invoices?: Invoice[];
-
-  @OneToMany(() => MonthlyStatement, (s) => s.dentist)
-  statements?: MonthlyStatement[];
+  // Populated virtuals — declared for typing only.
+  declare user?: User;
+  declare cases?: import('./case.entity').DentalCase[];
+  declare invoices?: import('./invoice.entity').Invoice[];
+  declare statements?: import('./monthly-statement.entity').MonthlyStatement[];
 }
+
+export type DentistDocument = HydratedDocument<Dentist>;
+export const DentistSchema = SchemaFactory.createForClass(Dentist);
+applySoftDelete(DentistSchema);
+
+DentistSchema.virtual('user', {
+  ref: 'User',
+  localField: 'userId',
+  foreignField: '_id',
+  justOne: true,
+});
+DentistSchema.virtual('cases', { ref: 'DentalCase', localField: '_id', foreignField: 'dentistId' });
+DentistSchema.virtual('invoices', { ref: 'Invoice', localField: '_id', foreignField: 'dentistId' });
+DentistSchema.virtual('statements', {
+  ref: 'MonthlyStatement',
+  localField: '_id',
+  foreignField: 'dentistId',
+});

@@ -1,5 +1,5 @@
 // One-command local dev with NO Docker and NO Redis:
-//   1. starts a userspace PostgreSQL, migrates + seeds it
+//   1. starts a userspace MongoDB (single-node replica set) and seeds it
 //   2. runs the API + web in watch mode (turbo)
 // Emails print to the API logs (MAIL_DRIVER=log) and the queue runs inline.
 import { spawn } from 'node:child_process';
@@ -10,7 +10,7 @@ import { launchDb } from './local-db.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
-const pg = await launchDb();
+const mongo = await launchDb();
 
 process.stdout.write('\n▶ Starting API + web (turbo dev)…\n\n');
 const dev = spawn('pnpm', ['dev'], {
@@ -19,6 +19,8 @@ const dev = spawn('pnpm', ['dev'], {
   shell: process.platform === 'win32',
   env: {
     ...process.env,
+    // launchDb set MONGODB_URI to the in-memory server; pass it through.
+    MONGODB_URI: process.env.MONGODB_URI,
     // Ensure no external infra is required regardless of .env contents.
     QUEUE_DRIVER: process.env.QUEUE_DRIVER || 'inline',
     MAIL_DRIVER: process.env.MAIL_DRIVER || 'log',
@@ -31,7 +33,7 @@ const shutdown = async () => {
   shuttingDown = true;
   process.stdout.write('\n▶ Shutting down…\n');
   dev.kill('SIGINT');
-  await pg.stop().catch(() => {});
+  await mongo.stop().catch(() => {});
   process.exit(0);
 };
 

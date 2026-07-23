@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
-import { PricingRule } from '../../database/entities';
+import { FilterQuery, Model } from 'mongoose';
+import { PricingRule, PricingRuleDocument } from '../../database/entities';
 import { AppConfig } from '../../config/app.config';
 import { Paginated, paginate, resolvePagination } from '../../common/utils/pagination';
 import {
@@ -23,7 +23,7 @@ export interface PriceQuote {
 @Injectable()
 export class PricingService {
   constructor(
-    @InjectRepository(PricingRule) private readonly rules: Repository<PricingRule>,
+    @InjectModel(PricingRule.name) private readonly rules: Model<PricingRule>,
     private readonly config: ConfigService,
   ) {}
 
@@ -33,39 +33,46 @@ export class PricingService {
 
   async list(query: ListPricingRulesDto): Promise<Paginated<PricingRule>> {
     const { skip, take, page, limit } = resolvePagination(query.page, query.limit);
-    const qb = this.rules
-      .createQueryBuilder('rule')
-      .leftJoinAndSelect('rule.caseType', 'caseType');
-    if (query.caseTypeId) qb.andWhere('rule.caseTypeId = :caseTypeId', { caseTypeId: query.caseTypeId });
-    if (query.dentistTier) qb.andWhere('rule.dentistTier = :tier', { tier: query.dentistTier });
-    if (!query.includeInactive) qb.andWhere('rule.isActive = true');
-    qb.orderBy('caseType.sortOrder', 'ASC')
-      .addOrderBy('rule.dentistTier', 'ASC', 'NULLS FIRST')
-      .skip(skip)
-      .take(take);
-    const [data, total] = await qb.getManyAndCount();
-    return paginate(data, total, page, limit);
+    const filter: FilterQuery<PricingRule> = {};
+    if (query.caseTypeId) filter.caseTypeId = query.caseTypeId;
+    if (query.dentistTier) filter.dentistTier = query.dentistTier;
+    if (!query.includeInactive) filter.isActive = true;
+
+    // Ordering keys on the joined case type's sortOrder, which a find() cannot
+    // sort by — so match, populate, and sort in memory. The pricing catalog is
+    // an admin-sized dataset, so materialising it fully is cheap.
+    const all = await this.rules.find(filter).populate('caseType').exec();
+    all.sort((a, b) => {
+      const orderA = a.caseType?.sortOrder ?? 0;
+      const orderB = b.caseType?.sortOrder ?? 0;
+      if (orderA !== orderB) return orderA - orderB;
+      // dentistTier ASC, NULLS FIRST.
+      if (a.dentistTier === b.dentistTier) return 0;
+      if (a.dentistTier === null) return -1;
+      if (b.dentistTier === null) return 1;
+      return a.dentistTier < b.dentistTier ? -1 : 1;
+    });
+
+    return paginate(all.slice(skip, skip + take), all.length, page, limit);
   }
 
-  async findByIdOrFail(id: string): Promise<PricingRule> {
-    const rule = await this.rules.findOne({ where: { id }, relations: { caseType: true } });
+  async findByIdOrFail(id: string): Promise<PricingRuleDocument> {
+    const rule = await this.rules.findById(id).populate('caseType').exec();
     if (!rule) throw new NotFoundException('Pricing rule not found');
     return rule;
   }
 
   async create(dto: CreatePricingRuleDto): Promise<PricingRule> {
-    return this.rules.save(
-      this.rules.create({
-        caseTypeId: dto.caseTypeId,
-        dentistTier: dto.dentistTier ?? null,
-        material: dto.material ?? null,
-        price: dto.price,
-        currency: dto.currency ?? this.defaultCurrency,
-        effectiveFrom: dto.effectiveFrom ?? new Date().toISOString().slice(0, 10),
-        effectiveTo: dto.effectiveTo ?? null,
-        isActive: dto.isActive ?? true,
-      }),
-    );
+    return this.rules.create({
+      caseTypeId: dto.caseTypeId,
+      dentistTier: dto.dentistTier ?? null,
+      material: dto.material ?? null,
+      price: dto.price,
+      currency: dto.currency ?? this.defaultCurrency,
+      effectiveFrom: dto.effectiveFrom ?? new Date().toISOString().slice(0, 10),
+      effectiveTo: dto.effectiveTo ?? null,
+      isActive: dto.isActive ?? true,
+    });
   }
 
   async update(id: string, dto: UpdatePricingRuleDto): Promise<PricingRule> {
@@ -79,12 +86,12 @@ export class PricingService {
       ...(dto.effectiveTo !== undefined && { effectiveTo: dto.effectiveTo }),
       ...(dto.isActive !== undefined && { isActive: dto.isActive }),
     });
-    return this.rules.save(rule);
+    return rule.save();
   }
 
   async remove(id: string): Promise<void> {
     await this.findByIdOrFail(id);
-    await this.rules.softDelete(id);
+    await this.rules.updateOne({ _id: id }, { deletedAt: new Date() }).exec();
   }
 
   /**
@@ -99,14 +106,15 @@ export class PricingService {
     onDate = new Date().toISOString().slice(0, 10),
   ): Promise<PriceQuote> {
     const candidates = await this.rules
-      .createQueryBuilder('rule')
-      .where('rule.caseTypeId = :caseTypeId', { caseTypeId })
-      .andWhere('rule.isActive = true')
-      .andWhere('rule.effectiveFrom <= :onDate', { onDate })
-      .andWhere('(rule.effectiveTo IS NULL OR rule.effectiveTo >= :onDate)', { onDate })
+      .find({
+        caseTypeId,
+        isActive: true,
+        effectiveFrom: { $lte: onDate },
+        $or: [{ effectiveTo: null }, { effectiveTo: { $gte: onDate } }],
+      })
       // Newest effective date wins among otherwise equally specific rules.
-      .orderBy('rule.effectiveFrom', 'DESC')
-      .getMany();
+      .sort({ effectiveFrom: -1 })
+      .exec();
 
     const tierMatches = (rule: PricingRule) =>
       Boolean(dentistTier) && rule.dentistTier === dentistTier;

@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { Model } from 'mongoose';
 import { CaseStatus } from '../entities';
 
 /**
@@ -21,20 +21,19 @@ const DEFAULTS: Array<Partial<CaseStatus> & { legacyColor?: string }> = [
   { label: 'Cancelled', slug: 'cancelled', color: '#e34948', sortOrder: 7, isTerminal: true, legacyColor: '#ef4444' },
 ];
 
-export async function seedCaseStatuses(ds: DataSource): Promise<void> {
-  const repo = ds.getRepository(CaseStatus);
+export async function seedCaseStatuses(repo: Model<CaseStatus>): Promise<void> {
   let recoloured = 0;
 
   for (const { legacyColor, ...data } of DEFAULTS) {
-    const existing = await repo.findOne({ where: { slug: data.slug } });
+    const existing = await repo.findOne({ slug: data.slug }).exec();
     if (!existing) {
-      await repo.save(repo.create({ ...data, isActive: true }));
+      await repo.create({ ...data, isActive: true });
       continue;
     }
     // Upgrade installs still on the old palette, but never overwrite a colour
     // an admin has deliberately customised.
     if (legacyColor && existing.color === legacyColor) {
-      await repo.update(existing.id, { color: data.color });
+      await repo.updateOne({ _id: existing.id }, { color: data.color }).exec();
       recoloured += 1;
     }
   }

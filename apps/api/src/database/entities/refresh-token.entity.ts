@@ -1,6 +1,6 @@
-import { Exclude } from 'class-transformer';
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from './base.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { BaseDocument, baseSchemaOptions } from '../base.schema';
 import { User } from './user.entity';
 
 /**
@@ -11,52 +11,54 @@ import { User } from './user.entity';
  * indistinguishable from a token that never existed. `purgeExpired` clears them
  * once they are too old to prove anything.
  */
-@Entity('refresh_tokens')
-@Index(['userId', 'revokedAt'])
-export class RefreshToken extends BaseEntity {
-  @Index()
-  @Column({ type: 'uuid' })
+@Schema(baseSchemaOptions('refresh_tokens', ['tokenHash']))
+export class RefreshToken extends BaseDocument {
+  @Prop({ type: String, ref: 'User', required: true })
   userId: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
-  user?: User;
-
   /** SHA-256 of the opaque token. The raw value exists only in the cookie. */
-  @Exclude()
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 128 })
+  @Prop({ type: String, required: true, unique: true })
   tokenHash: string;
 
   /**
    * Every token descended from a single login shares this id. Presenting an
    * already-spent token revokes the whole family, which ends both the thief's
-   * session and the victim's — the alternative is leaving an attacker with a
-   * valid chain.
+   * session and the victim's.
    */
-  @Index()
-  @Column({ type: 'uuid' })
+  @Prop({ type: String, required: true })
   familyId: string;
 
   /** Idle expiry. Each rotation moves it forward; inactivity lets it lapse. */
-  @Column({ type: 'timestamptz' })
+  @Prop({ type: Date, required: true })
   expiresAt: Date;
 
-  /**
-   * Ceiling set at login. Rotation never extends it, so an active session still
-   * ends on schedule and re-authentication is periodic rather than theoretical.
-   */
-  @Column({ type: 'timestamptz' })
+  /** Ceiling set at login. Rotation never extends it. */
+  @Prop({ type: Date, required: true })
   absoluteExpiresAt: Date;
 
   /** Set when spent by rotation, at logout, or by a family-wide revocation. */
-  @Column({ type: 'timestamptz', nullable: true })
+  @Prop({ type: Date, default: null })
   revokedAt: Date | null;
 
   /** Recorded for the audit trail — never used to decide whether to accept. */
-  @Column({ type: 'varchar', length: 64, nullable: true })
+  @Prop({ type: String, default: null })
   ipAddress: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Prop({ type: String, default: null })
   userAgent: string | null;
+
+  declare user?: User;
 }
+
+export type RefreshTokenDocument = HydratedDocument<RefreshToken>;
+export const RefreshTokenSchema = SchemaFactory.createForClass(RefreshToken);
+
+RefreshTokenSchema.index({ userId: 1 });
+RefreshTokenSchema.index({ familyId: 1 });
+RefreshTokenSchema.index({ userId: 1, revokedAt: 1 });
+RefreshTokenSchema.virtual('user', {
+  ref: 'User',
+  localField: 'userId',
+  foreignField: '_id',
+  justOne: true,
+});

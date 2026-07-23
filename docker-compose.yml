@@ -1,24 +1,29 @@
 # Local development stack for the Dental Lab platform.
-# Postgres + Redis + Mailpit are enough to run the app locally;
+# MongoDB + Redis + Mailpit are enough to run the app locally;
 # api/web services are provided for a full containerized run.
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: dental-postgres
+  mongo:
+    image: mongo:7
+    container_name: dental-mongo
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: dental
-      POSTGRES_PASSWORD: dental
-      POSTGRES_DB: dental
+    # A single-node replica set: MongoDB only allows the multi-document
+    # transactions the app uses (case+history, invoice+line-items, reference
+    # numbering) on a replica set, never a standalone mongod.
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
-      - "5432:5432"
+      - "27017:27017"
     volumes:
-      - ./docker/data/postgres:/var/lib/postgresql/data
+      - ./docker/data/mongo:/data/db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dental -d dental"]
+      # Initiate the replica set on first check, then report primary status.
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --port 27017 --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }\"",
+        ]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
 
   redis:
     image: redis:7-alpine
@@ -45,14 +50,14 @@ services:
     container_name: dental-api
     restart: unless-stopped
     depends_on:
-      postgres:
+      mongo:
         condition: service_healthy
       redis:
         condition: service_started
     env_file:
       - .env
     environment:
-      DB_HOST: postgres
+      MONGODB_URI: mongodb://mongo:27017/dental?directConnection=true
       REDIS_URL: redis://redis:6379
       SMTP_HOST: mailpit
       SMTP_PORT: 1025

@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { Connection, FilterQuery, Model } from 'mongoose';
 import {
   AuthenticatedUser,
   NotificationType,
@@ -9,11 +9,15 @@ import {
 } from '@dental/shared-types';
 import {
   CaseStatusHistory,
+  Counter,
   DentalCase,
+  DentalCaseDocument,
   Dentist,
 } from '../../database/entities';
+import { runInTransaction } from '../../database/base.schema';
 import { AppConfig } from '../../config/app.config';
 import { allocateReference } from '../../common/utils/reference';
+import { regexContains } from '../../common/utils/mongo';
 import { Paginated, paginate, resolvePagination } from '../../common/utils/pagination';
 import { emailTemplates } from '../../mail/templates';
 import { CatalogService } from '../catalog/catalog.service';
@@ -26,21 +30,27 @@ import {
   UpdateCaseDto,
 } from './cases.dto';
 
-/** Relations every case detail view needs. */
-const DETAIL_RELATIONS = {
-  dentist: { user: true },
-  caseType: true,
-  currentStatus: true,
-} as const;
+/** Populate spec every case detail view needs (dentist→user, type, status). */
+const DETAIL_POPULATE = [
+  { path: 'dentist', populate: { path: 'user' } },
+  { path: 'caseType' },
+  { path: 'currentStatus' },
+];
+
+/** True for a 36-char UUID (a status id) rather than a slug. */
+const isUuid = (value: string): boolean => /^[0-9a-f-]{36}$/i.test(value);
+
+/** A filter that matches nothing — used when a slug/id resolves to no status. */
+const MATCH_NONE = '__no_such_status__';
 
 @Injectable()
 export class CasesService {
   constructor(
-    @InjectRepository(DentalCase) private readonly cases: Repository<DentalCase>,
-    @InjectRepository(Dentist) private readonly dentists: Repository<Dentist>,
-    @InjectRepository(CaseStatusHistory)
-    private readonly history: Repository<CaseStatusHistory>,
-    private readonly dataSource: DataSource,
+    @InjectModel(DentalCase.name) private readonly cases: Model<DentalCase>,
+    @InjectModel(Dentist.name) private readonly dentists: Model<Dentist>,
+    @InjectModel(CaseStatusHistory.name) private readonly history: Model<CaseStatusHistory>,
+    @InjectModel(Counter.name) private readonly counters: Model<Counter>,
+    @InjectConnection() private readonly connection: Connection,
     private readonly catalog: CatalogService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
@@ -56,11 +66,20 @@ export class CasesService {
 
   /** Resolve the Dentist row backing a dentist principal. */
   private async dentistForUser(userId: string): Promise<Dentist> {
-    const dentist = await this.dentists.findOne({ where: { userId } });
+    const dentist = await this.dentists.findOne({ userId }).exec();
     if (!dentist) {
       throw new ForbiddenException('No dentist profile is linked to this account');
     }
     return dentist;
+  }
+
+  /** Terminal and non-terminal status ids, for bucket filters. */
+  private async statusIdsByTerminality(): Promise<{ terminal: string[]; active: string[] }> {
+    const statuses = await this.catalog.listStatuses(true);
+    return {
+      terminal: statuses.filter((s) => s.isTerminal).map((s) => s.id),
+      active: statuses.filter((s) => !s.isTerminal).map((s) => s.id),
+    };
   }
 
   // ── Create ────────────────────────────────────────────────────────────────
@@ -80,39 +99,39 @@ export class CasesService {
       this.catalog.defaultStatus(),
     ]);
 
-    const created = await this.dataSource.transaction(async (manager) => {
-      const reference = await allocateReference(manager, {
-        table: 'cases',
-        column: 'reference',
-        prefix: 'CASE',
-      });
+    const created = await runInTransaction(this.connection, async (session) => {
+      const reference = await allocateReference(this.counters, { prefix: 'CASE' }, session);
 
-      const repo = manager.getRepository(DentalCase);
-      const entity = await repo.save(
-        repo.create({
-          reference,
-          dentistId,
-          caseTypeId: dto.caseTypeId,
-          patientReference: dto.patientReference,
-          toothRegion: dto.toothRegion ?? null,
-          material: dto.material ?? null,
-          shade: dto.shade ?? null,
-          deadline: dto.deadline ?? null,
-          clinicalNotes: dto.clinicalNotes ?? null,
-          currentStatusId: status.id,
-          submittedAt: new Date(),
-        }),
+      const [entity] = await this.cases.create(
+        [
+          {
+            reference,
+            dentistId,
+            caseTypeId: dto.caseTypeId,
+            patientReference: dto.patientReference,
+            toothRegion: dto.toothRegion ?? null,
+            material: dto.material ?? null,
+            shade: dto.shade ?? null,
+            deadline: dto.deadline ?? null,
+            clinicalNotes: dto.clinicalNotes ?? null,
+            currentStatusId: status.id,
+            submittedAt: new Date(),
+          },
+        ],
+        { session },
       );
 
       // Seed the timeline with the entry status so history is never empty.
-      const historyRepo = manager.getRepository(CaseStatusHistory);
-      await historyRepo.save(
-        historyRepo.create({
-          caseId: entity.id,
-          caseStatusId: status.id,
-          changedByUserId: user.id,
-          note: 'Case submitted',
-        }),
+      await this.history.create(
+        [
+          {
+            caseId: entity.id,
+            caseStatusId: status.id,
+            changedByUserId: user.id,
+            note: 'Case submitted',
+          },
+        ],
+        { session },
       );
 
       return entity;
@@ -144,71 +163,110 @@ export class CasesService {
 
   async list(query: ListCasesDto, user: AuthenticatedUser): Promise<Paginated<DentalCase>> {
     const { skip, take, page, limit } = resolvePagination(query.page, query.limit);
-    const qb = this.cases
-      .createQueryBuilder('c')
-      .leftJoinAndSelect('c.caseType', 'caseType')
-      .leftJoinAndSelect('c.currentStatus', 'status')
-      .leftJoinAndSelect('c.dentist', 'dentist')
-      .leftJoinAndSelect('dentist.user', 'dentistUser');
 
-    await this.applyScope(qb, user, query.dentistId);
-    this.applyFilters(qb, query);
+    const filter: FilterQuery<DentalCase> = {};
+    await this.applyScope(filter, user, query.dentistId);
+    await this.applyFilters(filter, query);
 
-    const sortColumn = { submittedAt: 'c.submittedAt', deadline: 'c.deadline', reference: 'c.reference' }[
+    const sortColumn = { submittedAt: 'submittedAt', deadline: 'deadline', reference: 'reference' }[
       query.sort ?? 'submittedAt'
     ];
-    qb.orderBy(sortColumn, query.order ?? 'DESC').skip(skip).take(take);
+    const sortDir = (query.order ?? 'DESC') === 'ASC' ? 1 : -1;
 
-    const [data, total] = await qb.getManyAndCount();
+    const [data, total] = await Promise.all([
+      this.cases
+        .find(filter)
+        .populate(DETAIL_POPULATE)
+        .sort({ [sortColumn]: sortDir })
+        .skip(skip)
+        .limit(take)
+        .exec(),
+      this.cases.countDocuments(filter).exec(),
+    ]);
     return paginate(data, total, page, limit);
   }
 
-  /** Restrict the query to what the caller is allowed to see. */
+  /** Restrict the filter to what the caller is allowed to see. */
   private async applyScope(
-    qb: SelectQueryBuilder<DentalCase>,
+    filter: FilterQuery<DentalCase>,
     user: AuthenticatedUser,
     requestedDentistId?: string,
   ): Promise<void> {
     if (this.isAdmin(user)) {
-      if (requestedDentistId) {
-        qb.andWhere('c.dentistId = :dentistId', { dentistId: requestedDentistId });
-      }
+      if (requestedDentistId) filter.dentistId = requestedDentistId;
       return;
     }
     const dentist = await this.dentistForUser(user.id);
-    qb.andWhere('c.dentistId = :ownDentistId', { ownDentistId: dentist.id });
+    filter.dentistId = dentist.id;
   }
 
-  private applyFilters(qb: SelectQueryBuilder<DentalCase>, query: ListCasesDto): void {
-    if (query.status) {
-      // Accept either a status id or its slug so links stay readable.
-      const key = /^[0-9a-f-]{36}$/i.test(query.status) ? 'status.id' : 'status.slug';
-      qb.andWhere(`${key} = :status`, { status: query.status });
+  private async applyFilters(filter: FilterQuery<DentalCase>, query: ListCasesDto): Promise<void> {
+    // Resolve any status / bucket selection into a currentStatusId constraint.
+    const constraint = await this.resolveStatusConstraint(query);
+    if (constraint !== undefined) filter.currentStatusId = constraint;
+
+    if (query.caseTypeId) filter.caseTypeId = query.caseTypeId;
+
+    if (query.dateFrom || query.dateTo) {
+      const submittedAt: Record<string, Date> = {};
+      if (query.dateFrom) submittedAt.$gte = new Date(`${query.dateFrom}T00:00:00.000Z`);
+      if (query.dateTo) submittedAt.$lt = this.nextDay(query.dateTo);
+      filter.submittedAt = submittedAt;
     }
-    if (query.bucket === 'active') qb.andWhere('status.isTerminal = false');
-    if (query.bucket === 'completed') qb.andWhere('status.isTerminal = true');
-    if (query.caseTypeId) qb.andWhere('c.caseTypeId = :caseTypeId', { caseTypeId: query.caseTypeId });
-    if (query.dateFrom) qb.andWhere('c.submittedAt >= :dateFrom', { dateFrom: query.dateFrom });
-    if (query.dateTo) {
-      // Inclusive of the whole end day.
-      qb.andWhere("c.submittedAt < (:dateTo::date + INTERVAL '1 day')", { dateTo: query.dateTo });
-    }
+
     if (query.search) {
-      qb.andWhere(
-        '(c.reference ILIKE :q OR c.patientReference ILIKE :q OR c.material ILIKE :q OR c.toothRegion ILIKE :q)',
-        { q: `%${query.search}%` },
-      );
+      const rx = regexContains(query.search);
+      filter.$or = [
+        { reference: rx },
+        { patientReference: rx },
+        { material: rx },
+        { toothRegion: rx },
+      ];
     }
   }
 
-  async findByIdOrFail(id: string): Promise<DentalCase> {
-    const found = await this.cases.findOne({ where: { id }, relations: DETAIL_RELATIONS });
+  /**
+   * Turn `status` (id or slug) and `bucket` (active/completed) into a
+   * `currentStatusId` constraint, or `undefined` when neither is set. Returns a
+   * never-matching value when a slug/id resolves to no status.
+   */
+  private async resolveStatusConstraint(
+    query: ListCasesDto,
+  ): Promise<string | { $in: string[] } | undefined> {
+    let explicitId: string | undefined;
+    if (query.status) {
+      if (isUuid(query.status)) {
+        explicitId = query.status;
+      } else {
+        const found = await this.catalog.findStatusBySlug(query.status);
+        explicitId = found?.id ?? MATCH_NONE;
+      }
+    }
+
+    if (!query.bucket) return explicitId;
+
+    const { terminal, active } = await this.statusIdsByTerminality();
+    const bucketIds = query.bucket === 'completed' ? terminal : active;
+    if (explicitId) {
+      return bucketIds.includes(explicitId) ? explicitId : MATCH_NONE;
+    }
+    return { $in: bucketIds };
+  }
+
+  private nextDay(dateStr: string): Date {
+    const d = new Date(`${dateStr}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d;
+  }
+
+  async findByIdOrFail(id: string): Promise<DentalCaseDocument> {
+    const found = await this.cases.findById(id).populate(DETAIL_POPULATE).exec();
     if (!found) throw new NotFoundException('Case not found');
     return found;
   }
 
   /** Load a case, enforcing that a dentist can only reach their own. */
-  async findScoped(id: string, user: AuthenticatedUser): Promise<DentalCase> {
+  async findScoped(id: string, user: AuthenticatedUser): Promise<DentalCaseDocument> {
     const found = await this.findByIdOrFail(id);
     await this.assertAccess(found, user);
     return found;
@@ -225,11 +283,12 @@ export class CasesService {
 
   async timeline(id: string, user: AuthenticatedUser): Promise<CaseStatusHistory[]> {
     await this.findScoped(id, user);
-    return this.history.find({
-      where: { caseId: id },
-      relations: { caseStatus: true, changedByUser: true },
-      order: { createdAt: 'ASC' },
-    });
+    return this.history
+      .find({ caseId: id })
+      .populate('caseStatus')
+      .populate('changedByUser')
+      .sort({ createdAt: 1 })
+      .exec();
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
@@ -261,7 +320,7 @@ export class CasesService {
     if (dto.deadline !== undefined) entity.deadline = dto.deadline;
     if (dto.clinicalNotes !== undefined) entity.clinicalNotes = dto.clinicalNotes;
 
-    await this.cases.save(entity);
+    await entity.save();
     return this.findByIdOrFail(id);
   }
 
@@ -274,20 +333,28 @@ export class CasesService {
     const entity = await this.findByIdOrFail(id);
     const status = await this.catalog.findStatusOrFail(dto.caseStatusId);
 
-    await this.dataSource.transaction(async (manager) => {
-      await manager.getRepository(DentalCase).update(id, {
-        currentStatusId: status.id,
-        // Terminal statuses stamp completion; reopening clears it.
-        completedAt: status.isTerminal ? new Date() : null,
-      });
-      const historyRepo = manager.getRepository(CaseStatusHistory);
-      await historyRepo.save(
-        historyRepo.create({
-          caseId: id,
-          caseStatusId: status.id,
-          changedByUserId: user.id,
-          note: dto.note ?? null,
-        }),
+    await runInTransaction(this.connection, async (session) => {
+      await this.cases
+        .updateOne(
+          { _id: id },
+          {
+            currentStatusId: status.id,
+            // Terminal statuses stamp completion; reopening clears it.
+            completedAt: status.isTerminal ? new Date() : null,
+          },
+          { session },
+        )
+        .exec();
+      await this.history.create(
+        [
+          {
+            caseId: id,
+            caseStatusId: status.id,
+            changedByUserId: user.id,
+            note: dto.note ?? null,
+          },
+        ],
+        { session },
       );
     });
 
@@ -315,24 +382,23 @@ export class CasesService {
   /** Move a case to a different dentist. Admin only, recorded on the timeline. */
   async reassign(id: string, dto: ReassignCaseDto, user: AuthenticatedUser): Promise<DentalCase> {
     const entity = await this.findByIdOrFail(id);
-    const target = await this.dentists.findOne({
-      where: { id: dto.dentistId },
-      relations: { user: true },
-    });
+    const target = await this.dentists.findById(dto.dentistId).populate('user').exec();
     if (!target) throw new NotFoundException('Target dentist not found');
 
-    await this.dataSource.transaction(async (manager) => {
-      await manager.getRepository(DentalCase).update(id, { dentistId: target.id });
-      const historyRepo = manager.getRepository(CaseStatusHistory);
-      await historyRepo.save(
-        historyRepo.create({
-          caseId: id,
-          caseStatusId: entity.currentStatusId,
-          changedByUserId: user.id,
-          note:
-            dto.note ??
-            `Reassigned to ${target.user?.firstName ?? ''} ${target.user?.lastName ?? ''}`.trim(),
-        }),
+    await runInTransaction(this.connection, async (session) => {
+      await this.cases.updateOne({ _id: id }, { dentistId: target.id }, { session }).exec();
+      await this.history.create(
+        [
+          {
+            caseId: id,
+            caseStatusId: entity.currentStatusId,
+            changedByUserId: user.id,
+            note:
+              dto.note ??
+              `Reassigned to ${target.user?.firstName ?? ''} ${target.user?.lastName ?? ''}`.trim(),
+          },
+        ],
+        { session },
       );
     });
 
@@ -348,41 +414,40 @@ export class CasesService {
     completed: number;
     dueSoon: number;
   }> {
-    const base = (): SelectQueryBuilder<DentalCase> =>
+    const scope: FilterQuery<DentalCase> = {};
+    await this.applyScope(scope, user);
+    const { terminal, active } = await this.statusIdsByTerminality();
+
+    // Due within 7 days, inclusive — deadlines are ISO date strings.
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() + 7);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+    const [total, completed, activeCount, dueSoon] = await Promise.all([
+      this.cases.countDocuments(scope).exec(),
+      this.cases.countDocuments({ ...scope, currentStatusId: { $in: terminal } }).exec(),
+      this.cases.countDocuments({ ...scope, currentStatusId: { $in: active } }).exec(),
       this.cases
-        .createQueryBuilder('c')
-        .leftJoin('c.currentStatus', 'status');
-
-    const scope = async (qb: SelectQueryBuilder<DentalCase>) => {
-      await this.applyScope(qb, user);
-      return qb;
-    };
-
-    const [total, active, completed, dueSoon] = await Promise.all([
-      scope(base()).then((qb) => qb.getCount()),
-      scope(base()).then((qb) => qb.andWhere('status.isTerminal = false').getCount()),
-      scope(base()).then((qb) => qb.andWhere('status.isTerminal = true').getCount()),
-      scope(base()).then((qb) =>
-        qb
-          .andWhere('status.isTerminal = false')
-          .andWhere('c.deadline IS NOT NULL')
-          .andWhere("c.deadline <= CURRENT_DATE + INTERVAL '7 days'")
-          .getCount(),
-      ),
+        .countDocuments({
+          ...scope,
+          currentStatusId: { $in: active },
+          deadline: { $ne: null, $lte: cutoffStr },
+        })
+        .exec(),
     ]);
 
-    return { total, active, completed, dueSoon };
+    return { total, active: activeCount, completed, dueSoon };
   }
 
   /** Most recent cases for the dashboard feed. */
   async recent(user: AuthenticatedUser, take = 5): Promise<DentalCase[]> {
-    const qb = this.cases
-      .createQueryBuilder('c')
-      .leftJoinAndSelect('c.caseType', 'caseType')
-      .leftJoinAndSelect('c.currentStatus', 'status')
-      .leftJoinAndSelect('c.dentist', 'dentist')
-      .leftJoinAndSelect('dentist.user', 'dentistUser');
-    await this.applyScope(qb, user);
-    return qb.orderBy('c.submittedAt', 'DESC').take(take).getMany();
+    const scope: FilterQuery<DentalCase> = {};
+    await this.applyScope(scope, user);
+    return this.cases
+      .find(scope)
+      .populate(DETAIL_POPULATE)
+      .sort({ submittedAt: -1 })
+      .limit(take)
+      .exec();
   }
 }

@@ -47,7 +47,7 @@ describe('Cases (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await truncateAll(ctx.dataSource);
+    await truncateAll(ctx.connection);
     catalog = await fixtures.catalog();
     dentist = await fixtures.dentist();
     const admin = await fixtures.admin();

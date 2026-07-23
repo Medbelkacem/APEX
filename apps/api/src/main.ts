@@ -1,7 +1,7 @@
 import './load-env';
 import 'reflect-metadata';
-import { ClassSerializerInterceptor, Logger as NestLogger } from '@nestjs/common';
-import { NestFactory, Reflector } from '@nestjs/core';
+import { Logger as NestLogger } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
@@ -39,9 +39,9 @@ async function bootstrap(): Promise<void> {
   app.use(cookieParser());
   app.use(compression());
   app.enableCors({ origin: appCfg.corsOrigins, credentials: true });
-  // Strip @Exclude()-marked fields (passwordHash, tokens, internal auth state)
-  // from every serialized response.
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  // Secret fields (passwordHash, tokens, internal auth state) are hidden at the
+  // schema level: `select: false` keeps them out of query results, and each
+  // schema's toJSON transform drops the rest — see database/base.schema.ts.
   app.enableShutdownHooks();
 
   // OpenAPI docs (Zod DTOs made Swagger-aware via patchNestjsSwagger).

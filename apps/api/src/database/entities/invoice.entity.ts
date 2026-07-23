@@ -1,64 +1,79 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
 import { InvoiceStatus } from '@dental/shared-types';
-import { SoftDeleteEntity } from './base.entity';
+import { SoftDeleteDocument, applySoftDelete, baseSchemaOptions } from '../base.schema';
 import { Dentist } from './dentist.entity';
 import { DentalCase } from './case.entity';
-import { InvoiceLineItem } from './invoice-line-item.entity';
 
-/** An invoice issued to a dentist, per case or as a batch. */
-@Entity('invoices')
-export class Invoice extends SoftDeleteEntity {
+/** An invoice issued to a dentist, per case or as a batch. Amounts are decimal strings. */
+@Schema(baseSchemaOptions('invoices'))
+export class Invoice extends SoftDeleteDocument {
   /** Sequential, e.g. INV-2026-0001. */
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 40 })
+  @Prop({ type: String, required: true, unique: true })
   number: string;
 
-  @Column({ type: 'uuid' })
+  @Prop({ type: String, ref: 'Dentist', required: true })
   dentistId: string;
 
-  @ManyToOne(() => Dentist, (d) => d.invoices, { onDelete: 'RESTRICT' })
-  @JoinColumn()
-  dentist: Dentist;
-
   /** null for batch invoices spanning multiple cases. */
-  @Column({ type: 'uuid', nullable: true })
+  @Prop({ type: String, ref: 'DentalCase', default: null })
   caseId: string | null;
 
-  @ManyToOne(() => DentalCase, (c) => c.invoices, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn()
-  case: DentalCase | null;
-
-  @Column({ type: 'date', default: () => 'CURRENT_DATE' })
+  /** ISO date (YYYY-MM-DD). */
+  @Prop({ type: String, required: true })
   issueDate: string;
 
-  @Column({ type: 'date', nullable: true })
+  @Prop({ type: String, default: null })
   dueDate: string | null;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Prop({ type: String, default: '0' })
   subtotal: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Prop({ type: String, default: '0' })
   tax: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Prop({ type: String, default: '0' })
   total: string;
 
-  @Column({ type: 'varchar', length: 3, default: 'USD' })
+  @Prop({ type: String, default: 'USD' })
   currency: string;
 
-  @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.DRAFT })
+  @Prop({ type: String, enum: Object.values(InvoiceStatus), default: InvoiceStatus.DRAFT })
   status: InvoiceStatus;
 
   /** Cached PDF path on the storage backend. */
-  @Column({ type: 'varchar', length: 512, nullable: true })
+  @Prop({ type: String, default: null })
   pdfPath: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Prop({ type: String, default: null })
   stripePaymentIntentId: string | null;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Prop({ type: Date, default: null })
   paidAt: Date | null;
 
-  @OneToMany(() => InvoiceLineItem, (li) => li.invoice, { cascade: true })
-  lineItems?: InvoiceLineItem[];
+  declare dentist?: Dentist;
+  declare case?: DentalCase | null;
+  declare lineItems?: import('./invoice-line-item.entity').InvoiceLineItem[];
 }
+
+export type InvoiceDocument = HydratedDocument<Invoice>;
+export const InvoiceSchema = SchemaFactory.createForClass(Invoice);
+applySoftDelete(InvoiceSchema);
+
+InvoiceSchema.virtual('dentist', {
+  ref: 'Dentist',
+  localField: 'dentistId',
+  foreignField: '_id',
+  justOne: true,
+});
+InvoiceSchema.virtual('case', {
+  ref: 'DentalCase',
+  localField: 'caseId',
+  foreignField: '_id',
+  justOne: true,
+});
+InvoiceSchema.virtual('lineItems', {
+  ref: 'InvoiceLineItem',
+  localField: '_id',
+  foreignField: 'invoiceId',
+});

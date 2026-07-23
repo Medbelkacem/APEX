@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { FilterQuery, Model } from 'mongoose';
 import {
   AuthenticatedUser,
   InvoiceStatus,
@@ -29,10 +29,9 @@ export class StatementsService {
   private readonly logger = new Logger(StatementsService.name);
 
   constructor(
-    @InjectRepository(MonthlyStatement)
-    private readonly statements: Repository<MonthlyStatement>,
-    @InjectRepository(Invoice) private readonly invoices: Repository<Invoice>,
-    @InjectRepository(Dentist) private readonly dentists: Repository<Dentist>,
+    @InjectModel(MonthlyStatement.name) private readonly statements: Model<MonthlyStatement>,
+    @InjectModel(Invoice.name) private readonly invoices: Model<Invoice>,
+    @InjectModel(Dentist.name) private readonly dentists: Model<Dentist>,
     private readonly pdf: PdfService,
     private readonly storage: StorageService,
     private readonly notifications: NotificationsService,
@@ -48,7 +47,7 @@ export class StatementsService {
   }
 
   private async dentistForUser(userId: string): Promise<Dentist> {
-    const dentist = await this.dentists.findOne({ where: { userId } });
+    const dentist = await this.dentists.findOne({ userId }).exec();
     if (!dentist) throw new ForbiddenException('No dentist profile is linked to this account');
     return dentist;
   }
@@ -68,29 +67,34 @@ export class StatementsService {
     user: AuthenticatedUser,
   ): Promise<Paginated<MonthlyStatement>> {
     const { skip, take, page, limit } = resolvePagination(query.page, query.limit);
-    const qb: SelectQueryBuilder<MonthlyStatement> = this.statements
-      .createQueryBuilder('s')
-      .leftJoinAndSelect('s.dentist', 'dentist')
-      .leftJoinAndSelect('dentist.user', 'dentistUser');
+    const filter: FilterQuery<MonthlyStatement> = {};
 
     if (this.isAdmin(user)) {
-      if (query.dentistId) qb.andWhere('s.dentistId = :dentistId', { dentistId: query.dentistId });
+      if (query.dentistId) filter.dentistId = query.dentistId;
     } else {
       const dentist = await this.dentistForUser(user.id);
-      qb.andWhere('s.dentistId = :ownId', { ownId: dentist.id });
+      filter.dentistId = dentist.id;
     }
-    if (query.year) qb.andWhere('s.periodYear = :year', { year: query.year });
+    if (query.year) filter.periodYear = query.year;
 
-    qb.orderBy('s.periodYear', 'DESC').addOrderBy('s.periodMonth', 'DESC').skip(skip).take(take);
-    const [data, total] = await qb.getManyAndCount();
+    const [data, total] = await Promise.all([
+      this.statements
+        .find(filter)
+        .populate({ path: 'dentist', populate: { path: 'user' } })
+        .sort({ periodYear: -1, periodMonth: -1 })
+        .skip(skip)
+        .limit(take)
+        .exec(),
+      this.statements.countDocuments(filter).exec(),
+    ]);
     return paginate(data, total, page, limit);
   }
 
   async findByIdOrFail(id: string): Promise<MonthlyStatement> {
-    const statement = await this.statements.findOne({
-      where: { id },
-      relations: { dentist: { user: true } },
-    });
+    const statement = await this.statements
+      .findById(id)
+      .populate({ path: 'dentist', populate: { path: 'user' } })
+      .exec();
     if (!statement) throw new NotFoundException('Statement not found');
     return statement;
   }
@@ -111,10 +115,7 @@ export class StatementsService {
    * after a late invoice simply refreshes the figures and the PDF.
    */
   async generate(dentistId: string, year: number, month: number): Promise<MonthlyStatement> {
-    const dentist = await this.dentists.findOne({
-      where: { id: dentistId },
-      relations: { user: true },
-    });
+    const dentist = await this.dentists.findById(dentistId).populate('user').exec();
     if (!dentist) throw new NotFoundException('Dentist not found');
 
     const { from, to } = monthRange(year, month);
@@ -122,11 +123,8 @@ export class StatementsService {
 
     // Opening balance = everything still owed from before this period.
     const priorInvoices = await this.invoices
-      .createQueryBuilder('invoice')
-      .where('invoice.dentistId = :dentistId', { dentistId })
-      .andWhere('invoice.issueDate < :from', { from })
-      .andWhere('invoice.status = :issued', { issued: InvoiceStatus.ISSUED })
-      .getMany();
+      .find({ dentistId, issueDate: { $lt: from }, status: InvoiceStatus.ISSUED })
+      .exec();
 
     const openingCents = priorInvoices.reduce((sum, i) => sum + this.toCents(i.total), 0);
     // A refunded invoice is money returned, so it is no more a receivable than
@@ -141,9 +139,9 @@ export class StatementsService {
       .reduce((sum, i) => sum + this.toCents(i.total), 0);
     const closingCents = openingCents + invoicedCents - paidCents;
 
-    const existing = await this.statements.findOne({
-      where: { dentistId, periodYear: year, periodMonth: month },
-    });
+    const existing = await this.statements
+      .findOne({ dentistId, periodYear: year, periodMonth: month })
+      .exec();
 
     const figures = {
       openingBalance: this.fromCents(openingCents),
@@ -153,15 +151,13 @@ export class StatementsService {
     };
 
     const statement = existing
-      ? await this.statements.save(Object.assign(existing, figures))
-      : await this.statements.save(
-          this.statements.create({
-            dentistId,
-            periodYear: year,
-            periodMonth: month,
-            ...figures,
-          }),
-        );
+      ? await Object.assign(existing, figures).save()
+      : await this.statements.create({
+          dentistId,
+          periodYear: year,
+          periodMonth: month,
+          ...figures,
+        });
 
     // Render and cache the PDF so downloads are instant.
     await this.renderAndStorePdf(statement, dentist, periodInvoices);
@@ -172,12 +168,13 @@ export class StatementsService {
   /** The non-draft invoices a statement covers, oldest first. */
   private periodInvoices(dentistId: string, from: string, to: string): Promise<Invoice[]> {
     return this.invoices
-      .createQueryBuilder('invoice')
-      .where('invoice.dentistId = :dentistId', { dentistId })
-      .andWhere('invoice.issueDate BETWEEN :from AND :to', { from, to })
-      .andWhere('invoice.status != :draft', { draft: InvoiceStatus.DRAFT })
-      .orderBy('invoice.issueDate', 'ASC')
-      .getMany();
+      .find({
+        dentistId,
+        issueDate: { $gte: from, $lte: to },
+        status: { $ne: InvoiceStatus.DRAFT },
+      })
+      .sort({ issueDate: 1 })
+      .exec();
   }
 
   /**
@@ -201,21 +198,18 @@ export class StatementsService {
     );
     await this.storage.save(path, buffer);
     if (statement.pdfPath !== path) {
-      await this.statements.update(statement.id, { pdfPath: path });
+      await this.statements.updateOne({ _id: statement.id }, { pdfPath: path }).exec();
     }
     return path;
   }
 
   /** Generate statements for every active dentist for a period. */
   async generateAll(year: number, month: number): Promise<{ created: number }> {
-    const dentists = await this.dentists
-      .createQueryBuilder('dentist')
-      .leftJoin('dentist.user', 'user')
-      .where('user.status = :status', { status: UserStatus.ACTIVE })
-      .getMany();
+    const dentists = await this.dentists.find().populate('user').exec();
+    const active = dentists.filter((d) => d.user?.status === UserStatus.ACTIVE);
 
     let created = 0;
-    for (const dentist of dentists) {
+    for (const dentist of active) {
       try {
         await this.generate(dentist.id, year, month);
         created += 1;
@@ -254,7 +248,7 @@ export class StatementsService {
       body: `Your statement for ${period} is ready.`,
       email: { html: tpl.html, text: tpl.text },
     });
-    await this.statements.update(id, { sentAt: new Date() });
+    await this.statements.updateOne({ _id: id }, { sentAt: new Date() }).exec();
   }
 
   /** Serve the statement PDF, re-rendering if the cached blob is missing. */

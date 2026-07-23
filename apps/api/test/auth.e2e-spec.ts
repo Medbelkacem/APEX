@@ -43,7 +43,7 @@ describe('Authentication (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await truncateAll(ctx.dataSource);
+    await truncateAll(ctx.connection);
   });
 
   describe('POST /api/auth/login', () => {
@@ -360,12 +360,8 @@ describe('Authentication (e2e)', () => {
 
   describe('legacy password hashes', () => {
     const storedHash = async (id: string): Promise<string> => {
-      const row = await ctx.dataSource
-        .getRepository(User)
-        .createQueryBuilder('user')
-        .addSelect('user.passwordHash')
-        .where('user.id = :id', { id })
-        .getOneOrFail();
+      // The adapter re-selects the normally-hidden passwordHash column.
+      const row = await ctx.dataSource.getRepository(User).findOneByOrFail({ id });
       return row.passwordHash!;
     };
 

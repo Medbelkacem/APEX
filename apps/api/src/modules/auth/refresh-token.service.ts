@@ -1,10 +1,11 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, IsNull, LessThan, Repository } from 'typeorm';
+import { ClientSession, Connection, Model } from 'mongoose';
 import { randomUUID } from 'crypto';
 import { UserStatus } from '@dental/shared-types';
 import { RefreshToken, User } from '../../database/entities';
+import { runInTransaction } from '../../database/base.schema';
 import { AuthConfig } from '../../config/auth.config';
 import { generateToken, hashToken } from '../../common/utils/tokens';
 
@@ -38,8 +39,8 @@ export class RefreshTokenService {
   private readonly logger = new Logger(RefreshTokenService.name);
 
   constructor(
-    @InjectRepository(RefreshToken) private readonly tokens: Repository<RefreshToken>,
-    private readonly dataSource: DataSource,
+    @InjectModel(RefreshToken.name) private readonly tokens: Model<RefreshToken>,
+    @InjectConnection() private readonly connection: Connection,
     private readonly config: ConfigService,
   ) {}
 
@@ -54,7 +55,7 @@ export class RefreshTokenService {
   /** Begin a new session family. Called on login, never on rotation. */
   async issue(userId: string, ctx: RequestContext = {}): Promise<IssuedRefreshToken> {
     const now = new Date();
-    return this.persist(this.tokens, {
+    return this.persist({
       userId,
       familyId: randomUUID(),
       absoluteExpiresAt: new Date(now.getTime() + this.authCfg.refreshTtl * 1000),
@@ -74,10 +75,7 @@ export class RefreshTokenService {
     rawToken: string,
     ctx: RequestContext = {},
   ): Promise<{ token: IssuedRefreshToken; user: User }> {
-    const existing = await this.tokens.findOne({
-      where: { tokenHash: hashToken(rawToken) },
-      relations: { user: true },
-    });
+    const existing = await this.tokens.findOne({ tokenHash: hashToken(rawToken) }).populate('user').exec();
 
     if (!existing) throw new UnauthorizedException('Session expired — please sign in again');
 
@@ -99,8 +97,10 @@ export class RefreshTokenService {
       throw new UnauthorizedException('Session expired — please sign in again');
     }
 
+    // A soft-deleted user does not populate, so a missing user here is either a
+    // deleted account or a dangling token — both end the session.
     const user = existing.user;
-    if (!user || user.deletedAt) {
+    if (!user) {
       await this.revokeFamily(existing.familyId);
       throw new UnauthorizedException('Session expired — please sign in again');
     }
@@ -123,27 +123,20 @@ export class RefreshTokenService {
      * Spending the token and issuing its successor have to commit together.
      *
      * Two refreshes racing on one token both read it unrevoked, and the
-     * conditional UPDATE lets only one through. The loser then has to decide
+     * conditional update lets only one through. The loser then has to decide
      * whether it raced or is a replay, and it answers that by looking for a
      * live token in the family — which only exists once the winner's successor
-     * is committed. Written separately, the loser can look in the gap between
-     * the winner's revoke and its insert, find nothing live, and tear down a
-     * session that was never in danger. Inside one transaction there is no gap:
-     * the loser's UPDATE blocks on the winner's row lock and, by the time it
-     * reports zero rows, the successor is already visible.
+     * is committed. Inside one transaction there is no gap: by the time the
+     * loser's update reports zero rows, the successor is already visible.
      */
-    const issued = await this.dataSource.transaction(async (manager) => {
-      const repo = manager.getRepository(RefreshToken);
-
+    const issued = await runInTransaction(this.connection, async (session) => {
       if (!existing.revokedAt) {
-        const spent = await repo.update(
-          { id: existing.id, revokedAt: IsNull() },
-          { revokedAt: now },
-        );
-        if (spent.affected !== 1) return null;
+        const spent = await this.tokens
+          .updateOne({ _id: existing.id, revokedAt: null }, { revokedAt: now }, { session })
+          .exec();
+        if (spent.modifiedCount !== 1) return null;
       }
-
-      return this.persist(repo, successor);
+      return this.persist(successor, session);
     });
 
     if (issued) return { token: issued, user };
@@ -157,43 +150,35 @@ export class RefreshTokenService {
       throw new UnauthorizedException('Session expired — please sign in again');
     }
 
-    return { token: await this.persist(this.tokens, successor), user };
+    return { token: await this.persist(successor), user };
   }
 
   /**
    * Whether a spent token is being replayed by a request that merely raced the
    * one that spent it, rather than by a second holder.
-   *
-   * Two tabs waking together, or a request the browser retried, will present
-   * the same token moments apart. Calling that theft would log people out for
-   * using the product normally, so a short leeway is allowed — but only while
-   * the chain is still live. Once every token in the family is revoked there is
-   * nothing legitimate left to continue: that is a logout, or a breach already
-   * dealt with, and either way this presentation gets nothing.
    */
   private async isConcurrentRotation(tokenId: string, now: Date): Promise<boolean> {
-    const fresh = await this.tokens.findOne({ where: { id: tokenId } });
+    const fresh = await this.tokens.findById(tokenId).exec();
     if (!fresh?.revokedAt) return false;
 
     const elapsedMs = now.getTime() - fresh.revokedAt.getTime();
     if (elapsedMs > this.authCfg.refreshReuseLeeway * 1000) return false;
 
-    const liveInFamily = await this.tokens.count({
-      where: { familyId: fresh.familyId, revokedAt: IsNull() },
-    });
+    const liveInFamily = await this.tokens
+      .countDocuments({ familyId: fresh.familyId, revokedAt: null })
+      .exec();
     return liveInFamily > 0;
   }
 
   /** Revoke a single token — the logout path. Unknown tokens are ignored. */
   async revoke(rawToken: string): Promise<void> {
-    await this.tokens.update(
-      { tokenHash: hashToken(rawToken), revokedAt: IsNull() },
-      { revokedAt: new Date() },
-    );
+    await this.tokens
+      .updateOne({ tokenHash: hashToken(rawToken), revokedAt: null }, { revokedAt: new Date() })
+      .exec();
   }
 
   async revokeFamily(familyId: string): Promise<void> {
-    await this.tokens.update({ familyId, revokedAt: IsNull() }, { revokedAt: new Date() });
+    await this.tokens.updateMany({ familyId, revokedAt: null }, { revokedAt: new Date() }).exec();
   }
 
   /**
@@ -202,7 +187,7 @@ export class RefreshTokenService {
    * compromise is that whoever else had it is logged out.
    */
   async revokeAllForUser(userId: string): Promise<void> {
-    await this.tokens.update({ userId, revokedAt: IsNull() }, { revokedAt: new Date() });
+    await this.tokens.updateMany({ userId, revokedAt: null }, { revokedAt: new Date() }).exec();
   }
 
   /**
@@ -213,18 +198,18 @@ export class RefreshTokenService {
    * token in the family could be accepted regardless.
    */
   async purgeExpired(): Promise<number> {
-    const result = await this.tokens.delete({ absoluteExpiresAt: LessThan(new Date()) });
-    return result.affected ?? 0;
+    const result = await this.tokens.deleteMany({ absoluteExpiresAt: { $lt: new Date() } }).exec();
+    return result.deletedCount ?? 0;
   }
 
   private async persist(
-    repo: Repository<RefreshToken>,
     input: {
       userId: string;
       familyId: string;
       absoluteExpiresAt: Date;
       ctx: RequestContext;
     },
+    session?: ClientSession,
   ): Promise<IssuedRefreshToken> {
     const { raw, hash } = generateToken();
     // The idle window is capped by the absolute ceiling, so a token can never
@@ -232,17 +217,20 @@ export class RefreshTokenService {
     const idle = this.idleExpiry();
     const expiresAt = idle < input.absoluteExpiresAt ? idle : input.absoluteExpiresAt;
 
-    await repo.save(
-      repo.create({
-        userId: input.userId,
-        tokenHash: hash,
-        familyId: input.familyId,
-        expiresAt,
-        absoluteExpiresAt: input.absoluteExpiresAt,
-        revokedAt: null,
-        ipAddress: input.ctx.ipAddress ?? null,
-        userAgent: input.ctx.userAgent?.slice(0, 255) ?? null,
-      }),
+    await this.tokens.create(
+      [
+        {
+          userId: input.userId,
+          tokenHash: hash,
+          familyId: input.familyId,
+          expiresAt,
+          absoluteExpiresAt: input.absoluteExpiresAt,
+          revokedAt: null,
+          ipAddress: input.ctx.ipAddress ?? null,
+          userAgent: input.ctx.userAgent?.slice(0, 255) ?? null,
+        },
+      ],
+      { session },
     );
 
     return { raw, expiresAt };

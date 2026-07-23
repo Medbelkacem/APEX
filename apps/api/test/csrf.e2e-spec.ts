@@ -35,7 +35,7 @@ describe('CSRF (e2e)', () => {
   afterAll(async () => ctx.close());
 
   beforeEach(async () => {
-    await truncateAll(ctx.dataSource);
+    await truncateAll(ctx.connection);
     const user = await fixtures.user();
     const res = await api(app)
       .post('/api/auth/login')

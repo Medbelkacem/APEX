@@ -1,40 +1,52 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from './base.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+import { BaseDocument, baseSchemaOptions } from '../base.schema';
 import { Dentist } from './dentist.entity';
 
 /** A per-dentist, per-month statement aggregating invoices for the period. */
-@Entity('monthly_statements')
-@Index(['dentistId', 'periodYear', 'periodMonth'], { unique: true })
-export class MonthlyStatement extends BaseEntity {
-  @Column({ type: 'uuid' })
+@Schema(baseSchemaOptions('monthly_statements'))
+export class MonthlyStatement extends BaseDocument {
+  @Prop({ type: String, ref: 'Dentist', required: true })
   dentistId: string;
 
-  @ManyToOne(() => Dentist, (d) => d.statements, { onDelete: 'CASCADE' })
-  @JoinColumn()
-  dentist: Dentist;
-
-  @Column({ type: 'int' })
+  @Prop({ type: Number, required: true })
   periodYear: number;
 
   /** 1–12. */
-  @Column({ type: 'int' })
+  @Prop({ type: Number, required: true })
   periodMonth: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Prop({ type: String, default: '0' })
   openingBalance: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Prop({ type: String, default: '0' })
   closingBalance: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Prop({ type: String, default: '0' })
   totalInvoiced: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Prop({ type: String, default: '0' })
   totalPaid: string;
 
-  @Column({ type: 'varchar', length: 512, nullable: true })
+  @Prop({ type: String, default: null })
   pdfPath: string | null;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Prop({ type: Date, default: null })
   sentAt: Date | null;
+
+  declare dentist?: Dentist;
 }
+
+export type MonthlyStatementDocument = HydratedDocument<MonthlyStatement>;
+export const MonthlyStatementSchema = SchemaFactory.createForClass(MonthlyStatement);
+
+MonthlyStatementSchema.index(
+  { dentistId: 1, periodYear: 1, periodMonth: 1 },
+  { unique: true },
+);
+MonthlyStatementSchema.virtual('dentist', {
+  ref: 'Dentist',
+  localField: 'dentistId',
+  foreignField: '_id',
+  justOne: true,
+});
