@@ -91,7 +91,7 @@ export function FileDropzone({
           if (!disabled) addFiles(e.dataTransfer.files);
         }}
         className={cn(
-          'rounded-xl border-2 border-dashed p-8 text-center transition-colors',
+          'rounded-xl border-2 border-dashed p-6 text-center transition-colors sm:p-8',
           dragging ? 'border-brand-500 bg-brand-50' : 'border-slate-300 bg-slate-50',
           disabled && 'opacity-60',
         )}

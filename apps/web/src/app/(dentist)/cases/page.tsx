@@ -7,7 +7,7 @@ import { buttonClasses } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
 import { Input, Label } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { AsyncSection, EmptyState } from '@/components/ui/data-states';
 import { Pagination } from '@/components/ui/pagination';
 import { useApi } from '@/lib/hooks/use-api';
@@ -155,11 +155,11 @@ function CasesView() {
               <thead>
                 <tr>
                   <Th>Reference</Th>
-                  <Th>Type</Th>
-                  <Th>Patient</Th>
+                  <Th className={COL.md}>Type</Th>
+                  <Th className={COL.md}>Patient</Th>
                   <Th>Status</Th>
-                  <Th>Deadline</Th>
-                  <Th>Submitted</Th>
+                  <Th className={COL.sm}>Deadline</Th>
+                  <Th className={COL.lg}>Submitted</Th>
                 </tr>
               </thead>
               <tbody>
@@ -172,16 +172,23 @@ function CasesView() {
                       >
                         {row.reference}
                       </Link>
+                      {/* Carries the two columns a phone drops. */}
+                      <RowMeta className="md:hidden">
+                        {row.caseType?.name ?? '—'} · {row.patientReference}
+                      </RowMeta>
                     </Td>
-                    <Td>{row.caseType?.name ?? '—'}</Td>
-                    <Td>{row.patientReference}</Td>
+                    <Td className={COL.md}>{row.caseType?.name ?? '—'}</Td>
+                    <Td className={COL.md}>{row.patientReference}</Td>
                     <Td>
                       {row.currentStatus && (
-                        <StatusBadge label={row.currentStatus.label} color={row.currentStatus.color} />
+                        <StatusBadge
+                          label={row.currentStatus.label}
+                          color={row.currentStatus.color}
+                        />
                       )}
                     </Td>
-                    <Td>{formatDate(row.deadline)}</Td>
-                    <Td>{formatDate(row.submittedAt)}</Td>
+                    <Td className={COL.sm}>{formatDate(row.deadline)}</Td>
+                    <Td className={COL.lg}>{formatDate(row.submittedAt)}</Td>
                   </Tr>
                 ))}
               </tbody>

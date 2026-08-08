@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { AsyncSection, EmptyState } from '@/components/ui/data-states';
 import { Pagination } from '@/components/ui/pagination';
 import { useApi } from '@/lib/hooks/use-api';
@@ -108,9 +108,9 @@ export default function DentistInvoicesPage() {
               <thead>
                 <tr>
                   <Th>Invoice</Th>
-                  <Th>Issued</Th>
-                  <Th>Due</Th>
-                  <Th>Status</Th>
+                  <Th className={COL.md}>Issued</Th>
+                  <Th className={COL.md}>Due</Th>
+                  <Th className={COL.sm}>Status</Th>
                   <Th className="text-right">Total</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
@@ -125,17 +125,23 @@ export default function DentistInvoicesPage() {
                       >
                         {invoice.number}
                       </Link>
+                      {/* Carries the dates, and the status until `sm` restores it. */}
+                      <RowMeta className="md:hidden">
+                        <span className="sm:hidden">{invoice.status} · </span>
+                        {formatDate(invoice.issueDate)}
+                        {invoice.dueDate && ` · due ${formatDate(invoice.dueDate)}`}
+                      </RowMeta>
                     </Td>
-                    <Td>{formatDate(invoice.issueDate)}</Td>
-                    <Td>{formatDate(invoice.dueDate)}</Td>
-                    <Td>
+                    <Td className={COL.md}>{formatDate(invoice.issueDate)}</Td>
+                    <Td className={COL.md}>{formatDate(invoice.dueDate)}</Td>
+                    <Td className={COL.sm}>
                       <Badge tone={INVOICE_TONES[invoice.status]}>{invoice.status}</Badge>
                     </Td>
                     <Td className="text-right font-medium text-slate-900">
                       {formatMoney(invoice.total, invoice.currency)}
                     </Td>
                     <Td className="text-right">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex flex-wrap justify-end gap-1">
                         <a
                           href={invoicesApi.pdfUrl(invoice.id)}
                           className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"

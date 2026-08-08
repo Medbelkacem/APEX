@@ -16,10 +16,10 @@ export default async function ServicesPage() {
   const services = await loadPublicCaseTypes();
 
   return (
-    <Container className="py-16">
+    <Container className="py-12 sm:py-16">
       <div className="mx-auto max-w-2xl text-center">
-        <h1 className="text-4xl font-bold text-slate-900">Our services</h1>
-        <p className="mt-4 text-lg text-slate-600">
+        <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">Our services</h1>
+        <p className="mt-4 text-base text-slate-600 sm:text-lg">
           A complete range of restorative and orthodontic case types, all orderable through the
           portal.
         </p>

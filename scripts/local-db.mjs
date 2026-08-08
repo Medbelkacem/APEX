@@ -103,7 +103,28 @@ async function ensureReplicaSet() {
 export async function launchDb() {
   mkdirSync(dataDir, { recursive: true });
 
-  const binary = await MongoBinary.getPath({});
+  // Resolve the mongod binary, with fallbacks for platforms where the
+  // default version is unavailable from MongoDB's fastdl. This avoids a
+  // hard failure when MongoDB 7.x builds are missing for the runner.
+  async function resolveMongoBinary() {
+    try {
+      return await MongoBinary.getPath({});
+    } catch (err) {
+      const fallbacks = ['6.0.14', '6.0.12', '5.0.14'];
+      for (const v of fallbacks) {
+        try {
+          const p = await MongoBinary.getPath({ version: v });
+          process.stdout.write(`\n▶ Using fallback mongod version ${v}\n`);
+          return p;
+        } catch (e) {
+          // try next
+        }
+      }
+      throw err;
+    }
+  }
+
+  const binary = await resolveMongoBinary();
   const mongod = spawn(
     binary,
     [

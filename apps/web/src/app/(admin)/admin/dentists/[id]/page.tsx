@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { Badge, StatusBadge } from '@/components/ui/badge';
 import { Input, Label, Textarea } from '@/components/ui/field';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { AsyncSection, EmptyState, Skeleton, Spinner } from '@/components/ui/data-states';
 import { useApi } from '@/lib/hooks/use-api';
 import { dentistsApi } from '@/lib/api/admin';
@@ -372,10 +372,10 @@ export default function AdminDentistDetailPage() {
                 <thead>
                   <tr>
                     <Th>Reference</Th>
-                    <Th>Type</Th>
-                    <Th>Patient</Th>
+                    <Th className={COL.md}>Type</Th>
+                    <Th className={COL.md}>Patient</Th>
                     <Th>Status</Th>
-                    <Th>Submitted</Th>
+                    <Th className={COL.sm}>Submitted</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -388,9 +388,13 @@ export default function AdminDentistDetailPage() {
                         >
                           {row.reference}
                         </Link>
+                        {/* Carries the two columns a phone drops. */}
+                        <RowMeta className="md:hidden">
+                          {row.caseType?.name ?? '—'} · {row.patientReference}
+                        </RowMeta>
                       </Td>
-                      <Td>{row.caseType?.name ?? '—'}</Td>
-                      <Td>{row.patientReference}</Td>
+                      <Td className={COL.md}>{row.caseType?.name ?? '—'}</Td>
+                      <Td className={COL.md}>{row.patientReference}</Td>
                       <Td>
                         {row.currentStatus && (
                           <StatusBadge
@@ -399,7 +403,7 @@ export default function AdminDentistDetailPage() {
                           />
                         )}
                       </Td>
-                      <Td>{formatDate(row.submittedAt)}</Td>
+                      <Td className={COL.sm}>{formatDate(row.submittedAt)}</Td>
                     </Tr>
                   ))}
                 </tbody>
@@ -432,8 +436,8 @@ export default function AdminDentistDetailPage() {
                 <thead>
                   <tr>
                     <Th>Invoice</Th>
-                    <Th>Issued</Th>
-                    <Th>Due</Th>
+                    <Th className={COL.md}>Issued</Th>
+                    <Th className={COL.md}>Due</Th>
                     <Th>Status</Th>
                     <Th className="text-right">Total</Th>
                   </tr>
@@ -448,9 +452,14 @@ export default function AdminDentistDetailPage() {
                         >
                           {invoice.number}
                         </Link>
+                        {/* Carries the two date columns a phone drops. */}
+                        <RowMeta className="md:hidden">
+                          {formatDate(invoice.issueDate)}
+                          {invoice.dueDate && ` · due ${formatDate(invoice.dueDate)}`}
+                        </RowMeta>
                       </Td>
-                      <Td>{formatDate(invoice.issueDate)}</Td>
-                      <Td>{formatDate(invoice.dueDate)}</Td>
+                      <Td className={COL.md}>{formatDate(invoice.issueDate)}</Td>
+                      <Td className={COL.md}>{formatDate(invoice.dueDate)}</Td>
                       <Td>
                         <Badge tone={INVOICE_TONES[invoice.status]}>{invoice.status}</Badge>
                       </Td>

@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { Input, Label, Textarea } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { cn } from '@/lib/utils/cn';
 import { AsyncSection, EmptyState, Spinner } from '@/components/ui/data-states';
 import { Pagination } from '@/components/ui/pagination';
 import { useApi } from '@/lib/hooks/use-api';
@@ -213,25 +214,35 @@ export default function AdminNotificationsPage() {
             <Table>
               <thead>
                 <tr>
-                  <Th>Type</Th>
+                  <Th className={COL.md}>Type</Th>
                   <Th>Subject</Th>
-                  <Th>Recipient</Th>
+                  <Th className={COL.md}>Recipient</Th>
                   <Th>Status</Th>
-                  <Th>Sent</Th>
+                  <Th className={cn(COL.lg, 'whitespace-nowrap')}>Sent</Th>
                 </tr>
               </thead>
               <tbody>
                 {(page.data as LogRow[]).map((row) => (
                   <Tr key={row.id}>
-                    <Td className="whitespace-nowrap">{humanize(row.type)}</Td>
-                    <Td className="font-medium text-slate-900">{row.subject}</Td>
-                    <Td>
+                    <Td className={cn(COL.md, 'whitespace-nowrap')}>{humanize(row.type)}</Td>
+                    <Td className="font-medium text-slate-900">
+                      {row.subject}
+                      {/* Carries the type, recipient, and timestamp a phone drops. */}
+                      <RowMeta className="font-normal md:hidden">
+                        {humanize(row.type)}
+                        {row.user && ` · ${row.user.firstName} ${row.user.lastName}`} ·{' '}
+                        {formatDateTime(row.sentAt ?? row.createdAt)}
+                      </RowMeta>
+                    </Td>
+                    <Td className={COL.md}>
                       {row.user ? (
                         <>
                           <span className="block">
                             {row.user.firstName} {row.user.lastName}
                           </span>
-                          <span className="block text-xs text-slate-500">{row.user.email}</span>
+                          <span className="block break-all text-xs text-slate-500">
+                            {row.user.email}
+                          </span>
                         </>
                       ) : (
                         '—'
@@ -240,7 +251,9 @@ export default function AdminNotificationsPage() {
                     <Td>
                       <Badge tone={STATUS_TONES[row.status] ?? 'neutral'}>{row.status}</Badge>
                     </Td>
-                    <Td className="whitespace-nowrap">{formatDateTime(row.sentAt ?? row.createdAt)}</Td>
+                    <Td className={cn(COL.lg, 'whitespace-nowrap')}>
+                      {formatDateTime(row.sentAt ?? row.createdAt)}
+                    </Td>
                   </Tr>
                 ))}
               </tbody>

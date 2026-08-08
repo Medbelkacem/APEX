@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { buttonClasses } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
 import { AsyncSection, Skeleton } from '@/components/ui/data-states';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { EmptyState } from '@/components/ui/data-states';
 import { useApi } from '@/lib/hooks/use-api';
 import { casesApi } from '@/lib/api/cases';
@@ -45,7 +45,7 @@ export default function DentistDashboardPage() {
         {cards.map((card) => (
           <Card key={card.label}>
             <div className="text-sm text-slate-500">{card.label}</div>
-            <div className="mt-2 text-3xl font-bold text-slate-900">
+            <div className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
               {card.value === undefined ? <Skeleton className="h-8 w-20" /> : card.value}
             </div>
           </Card>
@@ -95,10 +95,10 @@ export default function DentistDashboardPage() {
                 <thead>
                   <tr>
                     <Th>Reference</Th>
-                    <Th>Type</Th>
-                    <Th>Patient</Th>
+                    <Th className={COL.md}>Type</Th>
+                    <Th className={COL.md}>Patient</Th>
                     <Th>Status</Th>
-                    <Th>Submitted</Th>
+                    <Th className={COL.sm}>Submitted</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -111,9 +111,13 @@ export default function DentistDashboardPage() {
                         >
                           {row.reference}
                         </Link>
+                        {/* Carries the two columns a phone drops. */}
+                        <RowMeta className="md:hidden">
+                          {row.caseType?.name ?? '—'} · {row.patientReference}
+                        </RowMeta>
                       </Td>
-                      <Td>{row.caseType?.name ?? '—'}</Td>
-                      <Td>{row.patientReference}</Td>
+                      <Td className={COL.md}>{row.caseType?.name ?? '—'}</Td>
+                      <Td className={COL.md}>{row.patientReference}</Td>
                       <Td>
                         {row.currentStatus && (
                           <StatusBadge
@@ -122,7 +126,7 @@ export default function DentistDashboardPage() {
                           />
                         )}
                       </Td>
-                      <Td>{formatDate(row.submittedAt)}</Td>
+                      <Td className={COL.sm}>{formatDate(row.submittedAt)}</Td>
                     </Tr>
                   ))}
                 </tbody>

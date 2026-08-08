@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { StatusBadge } from '@/components/ui/badge';
 import { Input, Label } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { AsyncSection, EmptyState } from '@/components/ui/data-states';
 import { Pagination } from '@/components/ui/pagination';
 import { useApi } from '@/lib/hooks/use-api';
@@ -166,45 +166,53 @@ function AdminCasesView() {
       >
         {(page) => (
           <TableWrap>
-            <Table className="min-w-[52rem]">
+            <Table className="md:min-w-[52rem]">
               <thead>
                 <tr>
                   <Th>Reference</Th>
-                  <Th>Dentist</Th>
-                  <Th>Type</Th>
-                  <Th>Patient</Th>
+                  <Th className={COL.md}>Dentist</Th>
+                  <Th className={COL.lg}>Type</Th>
+                  <Th className={COL.md}>Patient</Th>
                   <Th>Status</Th>
-                  <Th>Deadline</Th>
-                  <Th>Submitted</Th>
+                  <Th className={COL.sm}>Deadline</Th>
+                  <Th className={COL.lg}>Submitted</Th>
                 </tr>
               </thead>
               <tbody>
-                {page.data.map((row) => (
-                  <Tr key={row.id}>
-                    <Td>
-                      <Link
-                        href={`/admin/cases/${row.id}`}
-                        className="font-medium text-brand-700 hover:underline"
-                      >
-                        {row.reference}
-                      </Link>
-                    </Td>
-                    <Td>
-                      {row.dentist?.user
-                        ? `${row.dentist.user.firstName} ${row.dentist.user.lastName}`
-                        : '—'}
-                    </Td>
-                    <Td>{row.caseType?.name ?? '—'}</Td>
-                    <Td>{row.patientReference}</Td>
-                    <Td>
-                      {row.currentStatus && (
-                        <StatusBadge label={row.currentStatus.label} color={row.currentStatus.color} />
-                      )}
-                    </Td>
-                    <Td>{formatDate(row.deadline)}</Td>
-                    <Td>{formatDate(row.submittedAt)}</Td>
-                  </Tr>
-                ))}
+                {page.data.map((row) => {
+                  const dentistName = row.dentist?.user
+                    ? `${row.dentist.user.firstName} ${row.dentist.user.lastName}`
+                    : '—';
+                  return (
+                    <Tr key={row.id}>
+                      <Td>
+                        <Link
+                          href={`/admin/cases/${row.id}`}
+                          className="font-medium text-brand-700 hover:underline"
+                        >
+                          {row.reference}
+                        </Link>
+                        {/* Carries the columns a phone drops. */}
+                        <RowMeta className="md:hidden">
+                          {dentistName} · {row.patientReference}
+                        </RowMeta>
+                      </Td>
+                      <Td className={COL.md}>{dentistName}</Td>
+                      <Td className={COL.lg}>{row.caseType?.name ?? '—'}</Td>
+                      <Td className={COL.md}>{row.patientReference}</Td>
+                      <Td>
+                        {row.currentStatus && (
+                          <StatusBadge
+                            label={row.currentStatus.label}
+                            color={row.currentStatus.color}
+                          />
+                        )}
+                      </Td>
+                      <Td className={COL.sm}>{formatDate(row.deadline)}</Td>
+                      <Td className={COL.lg}>{formatDate(row.submittedAt)}</Td>
+                    </Tr>
+                  );
+                })}
               </tbody>
             </Table>
             <Pagination meta={page.meta} onChange={(p) => patch({ page: p })} />

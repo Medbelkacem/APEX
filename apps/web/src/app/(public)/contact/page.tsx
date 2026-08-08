@@ -24,13 +24,13 @@ export default function ContactPage() {
   const details = DETAILS.filter(([, value]) => Boolean(value?.trim()));
 
   return (
-    <Container className="py-16">
+    <Container className="py-12 sm:py-16">
       <div className="grid gap-12 lg:grid-cols-[1fr_1.3fr]">
         <div>
-          <h1 className="text-4xl font-bold text-slate-900">Contact us</h1>
-          <p className="mt-4 text-lg text-slate-600">
-            Questions about partnering with the lab or sending a case? Send us a message and our team
-            will respond promptly.
+          <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">Contact us</h1>
+          <p className="mt-4 text-base text-slate-600 sm:text-lg">
+            Questions about partnering with the lab or sending a case? Send us a message and our
+            team will respond promptly.
           </p>
 
           {details.length > 0 && (

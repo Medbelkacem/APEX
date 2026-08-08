@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { Input, Label } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { AsyncSection, EmptyState, Spinner } from '@/components/ui/data-states';
 import { Pagination } from '@/components/ui/pagination';
 import { useApi } from '@/lib/hooks/use-api';
@@ -268,68 +268,56 @@ function AdminInvoicesView() {
       >
         {(page) => (
           <TableWrap>
-            <Table className="min-w-[52rem]">
+            <Table className="md:min-w-[52rem]">
               <thead>
                 <tr>
                   <Th>Invoice</Th>
-                  <Th>Dentist</Th>
-                  <Th>Issued</Th>
-                  <Th>Due</Th>
-                  <Th>Status</Th>
+                  <Th className={COL.md}>Dentist</Th>
+                  <Th className={COL.lg}>Issued</Th>
+                  <Th className={COL.lg}>Due</Th>
+                  <Th className={COL.sm}>Status</Th>
                   <Th className="text-right">Total</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
               </thead>
               <tbody>
-                {page.data.map((invoice) => (
-                  <Tr key={invoice.id}>
-                    <Td>
-                      <Link
-                        href={`/admin/invoices/${invoice.id}`}
-                        className="font-medium text-brand-700 hover:underline"
-                      >
-                        {invoice.number}
-                      </Link>
-                    </Td>
-                    <Td>
-                      {invoice.dentist?.user
-                        ? `${invoice.dentist.user.firstName} ${invoice.dentist.user.lastName}`
-                        : '—'}
-                    </Td>
-                    <Td>{formatDate(invoice.issueDate)}</Td>
-                    <Td>{formatDate(invoice.dueDate)}</Td>
-                    <Td>
-                      <Badge tone={INVOICE_TONES[invoice.status]}>{invoice.status}</Badge>
-                    </Td>
-                    <Td className="text-right font-medium text-slate-900">
-                      {formatMoney(invoice.total, invoice.currency)}
-                    </Td>
-                    <Td className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <a
-                          href={invoicesApi.pdfUrl(invoice.id)}
-                          className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                {page.data.map((invoice) => {
+                  const dentistName = invoice.dentist?.user
+                    ? `${invoice.dentist.user.firstName} ${invoice.dentist.user.lastName}`
+                    : '—';
+                  return (
+                    <Tr key={invoice.id}>
+                      <Td>
+                        <Link
+                          href={`/admin/invoices/${invoice.id}`}
+                          className="font-medium text-brand-700 hover:underline"
                         >
-                          PDF
-                        </a>
-                        {invoice.status === 'draft' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busy === invoice.id}
-                            onClick={() =>
-                              run(
-                                invoice.id,
-                                () => invoicesApi.issue(invoice.id),
-                                `${invoice.number} issued and emailed to the dentist.`,
-                              )
-                            }
+                          {invoice.number}
+                        </Link>
+                        {/* Carries the dentist, and the status until `sm` restores it. */}
+                        <RowMeta className="md:hidden">
+                          <span className="sm:hidden">{invoice.status} · </span>
+                          {dentistName}
+                        </RowMeta>
+                      </Td>
+                      <Td className={COL.md}>{dentistName}</Td>
+                      <Td className={COL.lg}>{formatDate(invoice.issueDate)}</Td>
+                      <Td className={COL.lg}>{formatDate(invoice.dueDate)}</Td>
+                      <Td className={COL.sm}>
+                        <Badge tone={INVOICE_TONES[invoice.status]}>{invoice.status}</Badge>
+                      </Td>
+                      <Td className="text-right font-medium text-slate-900">
+                        {formatMoney(invoice.total, invoice.currency)}
+                      </Td>
+                      <Td className="text-right">
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <a
+                            href={invoicesApi.pdfUrl(invoice.id)}
+                            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
                           >
-                            Issue
-                          </Button>
-                        )}
-                        {invoice.status === 'issued' && (
-                          <>
+                            PDF
+                          </a>
+                          {invoice.status === 'draft' && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -337,13 +325,47 @@ function AdminInvoicesView() {
                               onClick={() =>
                                 run(
                                   invoice.id,
-                                  () => invoicesApi.markPaid(invoice.id),
-                                  `${invoice.number} marked as paid.`,
+                                  () => invoicesApi.issue(invoice.id),
+                                  `${invoice.number} issued and emailed to the dentist.`,
                                 )
                               }
                             >
-                              Mark paid
+                              Issue
                             </Button>
+                          )}
+                          {invoice.status === 'issued' && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={busy === invoice.id}
+                                onClick={() =>
+                                  run(
+                                    invoice.id,
+                                    () => invoicesApi.markPaid(invoice.id),
+                                    `${invoice.number} marked as paid.`,
+                                  )
+                                }
+                              >
+                                Mark paid
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={busy === invoice.id}
+                                onClick={() =>
+                                  run(
+                                    invoice.id,
+                                    () => invoicesApi.cancel(invoice.id),
+                                    `${invoice.number} cancelled.`,
+                                  )
+                                }
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          )}
+                          {invoice.status === 'paid' && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -351,35 +373,19 @@ function AdminInvoicesView() {
                               onClick={() =>
                                 run(
                                   invoice.id,
-                                  () => invoicesApi.cancel(invoice.id),
-                                  `${invoice.number} cancelled.`,
+                                  () => invoicesApi.refund(invoice.id),
+                                  `${invoice.number} refunded.`,
                                 )
                               }
                             >
-                              Cancel
+                              Refund
                             </Button>
-                          </>
-                        )}
-                        {invoice.status === 'paid' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busy === invoice.id}
-                            onClick={() =>
-                              run(
-                                invoice.id,
-                                () => invoicesApi.refund(invoice.id),
-                                `${invoice.number} refunded.`,
-                              )
-                            }
-                          >
-                            Refund
-                          </Button>
-                        )}
-                      </div>
-                    </Td>
-                  </Tr>
-                ))}
+                          )}
+                        </div>
+                      </Td>
+                    </Tr>
+                  );
+                })}
               </tbody>
             </Table>
             <Pagination meta={page.meta} onChange={(p) => patch({ page: p })} />

@@ -7,7 +7,7 @@ import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { AsyncSection, EmptyState, Spinner } from '@/components/ui/data-states';
 import { Pagination } from '@/components/ui/pagination';
 import { useApi } from '@/lib/hooks/use-api';
@@ -117,7 +117,11 @@ export default function AdminPricingPage() {
   }
 
   async function deleteRule(id: string, caseTypeName: string) {
-    if (!window.confirm(`Delete the ${caseTypeName} pricing rule? Invoices already issued keep their price.`)) {
+    if (
+      !window.confirm(
+        `Delete the ${caseTypeName} pricing rule? Invoices already issued keep their price.`,
+      )
+    ) {
       return;
     }
     setRowMessage(undefined);
@@ -347,14 +351,15 @@ export default function AdminPricingPage() {
       >
         {(page) => (
           <TableWrap>
-            <Table className="min-w-[52rem]">
+            <Table className="md:min-w-[52rem]">
               <thead>
                 <tr>
                   <Th>Case type</Th>
-                  <Th>Tier</Th>
-                  <Th>Material</Th>
+                  <Th className={COL.md}>Tier</Th>
+                  <Th className={COL.md}>Material</Th>
                   <Th>Price</Th>
-                  <Th>Effective from</Th>
+                  <Th className={COL.lg}>Effective from</Th>
+                  {/* Stays put at every width: it is editable inline. */}
                   <Th>Active</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
@@ -365,9 +370,15 @@ export default function AdminPricingPage() {
                   const caseTypeName = rule.caseType?.name ?? '—';
                   return (
                     <Tr key={rule.id}>
-                      <Td className="font-medium text-slate-900">{caseTypeName}</Td>
-                      <Td>{rule.dentistTier ?? 'Any'}</Td>
-                      <Td>{rule.material ?? 'Any'}</Td>
+                      <Td className="font-medium text-slate-900">
+                        {caseTypeName}
+                        {/* Carries the tier and material a phone drops. */}
+                        <RowMeta className="font-normal md:hidden">
+                          {rule.dentistTier ?? 'Any'} tier · {rule.material ?? 'any'} material
+                        </RowMeta>
+                      </Td>
+                      <Td className={COL.md}>{rule.dentistTier ?? 'Any'}</Td>
+                      <Td className={COL.md}>{rule.material ?? 'Any'}</Td>
                       <Td>
                         {editing ? (
                           <Input
@@ -381,7 +392,7 @@ export default function AdminPricingPage() {
                           formatMoney(rule.price, rule.currency)
                         )}
                       </Td>
-                      <Td>{formatDate(rule.effectiveFrom)}</Td>
+                      <Td className={COL.lg}>{formatDate(rule.effectiveFrom)}</Td>
                       <Td>
                         {editing ? (
                           <Select
@@ -402,10 +413,14 @@ export default function AdminPricingPage() {
                         )}
                       </Td>
                       <Td>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                           {editing ? (
                             <>
-                              <Button size="sm" disabled={savingRow} onClick={() => saveRow(rule.id)}>
+                              <Button
+                                size="sm"
+                                disabled={savingRow}
+                                onClick={() => saveRow(rule.id)}
+                              >
                                 {savingRow && <Spinner className="mr-2" />}
                                 Save
                               </Button>
