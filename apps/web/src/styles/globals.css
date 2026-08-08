@@ -3,12 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
-    sans-serif;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 html {
   scroll-behavior: smooth;
+  /* iOS inflates text in landscape unless the page opts out. */
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {

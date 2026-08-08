@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { Label } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { cn } from '@/lib/utils/cn';
 import { AsyncSection, EmptyState, Spinner } from '@/components/ui/data-states';
 import { Pagination } from '@/components/ui/pagination';
 import { useApi } from '@/lib/hooks/use-api';
@@ -130,7 +131,10 @@ export default function AdminStatementsPage() {
 
       {message && <Alert tone={message.tone}>{message.text}</Alert>}
 
-      <form onSubmit={generate} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <form
+        onSubmit={generate}
+        className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
         <h2 className="text-lg font-semibold text-slate-900">Generate statements</h2>
         <p className="mt-1 text-sm text-slate-500">
           Re-running a period replaces the stored statement for that dentist.
@@ -253,16 +257,16 @@ export default function AdminStatementsPage() {
       >
         {(page) => (
           <TableWrap>
-            <Table className="min-w-[56rem]">
+            <Table className="md:min-w-[56rem]">
               <thead>
                 <tr>
                   <Th>Dentist</Th>
-                  <Th>Period</Th>
-                  <Th className="text-right">Opening</Th>
-                  <Th className="text-right">Invoiced</Th>
-                  <Th className="text-right">Paid</Th>
+                  <Th className={COL.sm}>Period</Th>
+                  <Th className={cn(COL.lg, 'text-right')}>Opening</Th>
+                  <Th className={cn(COL.lg, 'text-right')}>Invoiced</Th>
+                  <Th className={cn(COL.lg, 'text-right')}>Paid</Th>
                   <Th className="text-right">Closing</Th>
-                  <Th>Sent</Th>
+                  <Th className={COL.md}>Sent</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
               </thead>
@@ -273,21 +277,32 @@ export default function AdminStatementsPage() {
                       {statement.dentist?.user
                         ? `${statement.dentist.user.firstName} ${statement.dentist.user.lastName}`
                         : '—'}
+                      {/* Carries the period, and the sent state until `md` restores it. */}
+                      <RowMeta className="md:hidden">
+                        <span className="sm:hidden">
+                          {formatPeriod(statement.periodYear, statement.periodMonth)} ·{' '}
+                        </span>
+                        {statement.sentAt ? `sent ${formatDateTime(statement.sentAt)}` : 'not sent'}
+                      </RowMeta>
                     </Td>
-                    <Td className="font-medium text-slate-900">
+                    <Td className={cn(COL.sm, 'font-medium text-slate-900')}>
                       {formatPeriod(statement.periodYear, statement.periodMonth)}
                     </Td>
-                    <Td className="text-right">{formatMoney(statement.openingBalance)}</Td>
-                    <Td className="text-right">{formatMoney(statement.totalInvoiced)}</Td>
-                    <Td className="text-right">{formatMoney(statement.totalPaid)}</Td>
+                    <Td className={cn(COL.lg, 'text-right')}>
+                      {formatMoney(statement.openingBalance)}
+                    </Td>
+                    <Td className={cn(COL.lg, 'text-right')}>
+                      {formatMoney(statement.totalInvoiced)}
+                    </Td>
+                    <Td className={cn(COL.lg, 'text-right')}>{formatMoney(statement.totalPaid)}</Td>
                     <Td className="text-right font-medium text-slate-900">
                       {formatMoney(statement.closingBalance)}
                     </Td>
-                    <Td className="text-slate-500">
+                    <Td className={cn(COL.md, 'text-slate-500')}>
                       {statement.sentAt ? formatDateTime(statement.sentAt) : 'Not sent'}
                     </Td>
                     <Td className="text-right">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex flex-wrap justify-end gap-1">
                         <a
                           href={statementsApi.pdfUrl(statement.id)}
                           className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
@@ -309,7 +324,8 @@ export default function AdminStatementsPage() {
                             )
                           }
                         >
-                          Send by email
+                          <span className="sm:hidden">Email</span>
+                          <span className="hidden sm:inline">Send by email</span>
                         </Button>
                       </div>
                     </Td>

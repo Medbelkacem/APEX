@@ -179,7 +179,9 @@ export default function NewCasePage() {
         {STEPS.map((label, index) => {
           const state = index === step ? 'current' : index < step ? 'done' : 'todo';
           return (
-            <li key={label} className="flex-1">
+            // Squeezing five steps onto one phone row leaves ~2rem of text;
+            // a basis instead wraps them into readable rows.
+            <li key={label} className="min-w-[7rem] flex-[1_1_7rem]">
               <button
                 type="button"
                 // Only allow jumping back to a step already completed.
@@ -189,7 +191,8 @@ export default function NewCasePage() {
                   'w-full rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors',
                   state === 'current' && 'border-brand-500 bg-brand-50 text-brand-800',
                   state === 'done' && 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
-                  state === 'todo' && 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400',
+                  state === 'todo' &&
+                    'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400',
                 )}
                 aria-current={state === 'current' ? 'step' : undefined}
               >
@@ -213,9 +216,7 @@ export default function NewCasePage() {
         {/* Step 1 — case type */}
         {step === 0 && (
           <fieldset>
-            <legend className="text-lg font-semibold text-slate-900">
-              What are we making?
-            </legend>
+            <legend className="text-lg font-semibold text-slate-900">What are we making?</legend>
             <p className="mt-1 text-sm text-slate-500">
               Choose the restoration type for this case.
             </p>
@@ -321,8 +322,8 @@ export default function NewCasePage() {
           <fieldset>
             <legend className="text-lg font-semibold text-slate-900">Scan files</legend>
             <p className="mt-1 text-sm text-slate-500">
-              Attach STL scans and any supporting photos or documents. You can also add files
-              later from the case page.
+              Attach STL scans and any supporting photos or documents. You can also add files later
+              from the case page.
             </p>
             <div className="mt-5">
               <FileDropzone files={files} onChange={setFiles} disabled={submitting} />

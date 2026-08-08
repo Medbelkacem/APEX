@@ -7,7 +7,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
       <select
         ref={ref}
         className={cn(
-          'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm',
+          // 16px text below `sm` keeps iOS Safari from zooming the viewport in
+          // when the control takes focus; see the note in field.tsx.
+          'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 shadow-sm sm:text-sm',
           'focus:border-brand-500 focus:ring-1 focus:ring-brand-500',
           className,
         )}

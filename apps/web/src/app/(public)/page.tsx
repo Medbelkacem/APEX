@@ -29,17 +29,17 @@ export default async function HomePage() {
     <>
       {/* Hero */}
       <section className="bg-gradient-to-b from-brand-50 to-white">
-        <Container className="py-20 lg:py-28">
+        <Container className="py-14 sm:py-20 lg:py-28">
           <div className="max-w-2xl">
             <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-800">
               For dental practices
             </span>
-            <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+            <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
               Precision dental work, fully digital
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-slate-600">
-              Send cases, upload 3D scans, and track production without a single phone call. A modern
-              portal that connects your practice to our laboratory.
+            <p className="mt-5 max-w-xl text-base text-slate-600 sm:text-lg">
+              Send cases, upload 3D scans, and track production without a single phone call. A
+              modern portal that connects your practice to our laboratory.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link href="/contact" className={buttonClasses('primary', 'lg')}>
@@ -54,15 +54,17 @@ export default async function HomePage() {
       </section>
 
       {/* Value props */}
-      <section className="py-20">
+      <section className="py-14 sm:py-20">
         <Container>
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold text-slate-900">Everything your practice needs</h2>
+            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+              Everything your practice needs
+            </h2>
             <p className="mt-4 text-slate-600">
               A single workflow from submission to payment, designed to save your team time.
             </p>
           </div>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
+          <div className="mt-10 grid gap-6 sm:mt-14 md:grid-cols-3">
             {VALUE_PROPS.map((v) => (
               <Card key={v.title}>
                 <h3 className="text-lg font-semibold text-slate-900">{v.title}</h3>
@@ -74,11 +76,11 @@ export default async function HomePage() {
       </section>
 
       {/* Services summary */}
-      <section className="bg-slate-900 py-20 text-white">
+      <section className="bg-slate-900 py-14 text-white sm:py-20">
         <Container className="text-center">
-          <h2 className="text-3xl font-bold">Case types we handle</h2>
+          <h2 className="text-2xl font-bold sm:text-3xl">Case types we handle</h2>
           {caseTypes.length > 0 && (
-            <div className="mx-auto mt-10 flex max-w-3xl flex-wrap justify-center gap-3">
+            <div className="mx-auto mt-10 flex max-w-3xl flex-wrap justify-center gap-2 sm:gap-3">
               {caseTypes.map((type) => (
                 <span
                   key={type.id}
@@ -98,10 +100,10 @@ export default async function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="py-20">
+      <section className="py-14 sm:py-20">
         <Container>
-          <Card className="flex flex-col items-center gap-6 bg-brand-700 p-12 text-center text-white">
-            <h2 className="text-3xl font-bold">Ready to send your first case?</h2>
+          <Card className="flex flex-col items-center gap-6 bg-brand-700 p-8 text-center text-white sm:p-12">
+            <h2 className="text-2xl font-bold sm:text-3xl">Ready to send your first case?</h2>
             <p className="max-w-xl text-brand-50">
               Get in touch and we&apos;ll set up your practice with portal access.
             </p>

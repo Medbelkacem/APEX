@@ -33,7 +33,12 @@ export default function AdminWorkflowPage() {
 
   const [rowMessage, setRowMessage] = useState<Message>();
   const [editingId, setEditingId] = useState<string>();
-  const [draft, setDraft] = useState({ label: '', color: DEFAULT_COLOR, isTerminal: false, isActive: true });
+  const [draft, setDraft] = useState({
+    label: '',
+    color: DEFAULT_COLOR,
+    isTerminal: false,
+    isActive: true,
+  });
   const [busy, setBusy] = useState(false);
 
   async function createStatus(event: FormEvent) {
@@ -201,10 +206,16 @@ export default function AdminWorkflowPage() {
       >
         {(list) => (
           <TableWrap>
-            <Table className="min-w-[52rem]">
+            {/*
+             * Unlike the read-only lists, every column here turns into an
+             * inline editor — dropping one on a phone would take its control
+             * with it. So this table keeps all six and scrolls sideways
+             * instead, on a narrower floor than the desktop layout needs.
+             */}
+            <Table className="min-w-[44rem] lg:min-w-[52rem]">
               <thead>
                 <tr>
-                  <Th className="w-16">Order</Th>
+                  <Th className="w-12 sm:w-16">Order</Th>
                   <Th>Status</Th>
                   <Th>Colour</Th>
                   <Th>Terminal</Th>
@@ -222,7 +233,7 @@ export default function AdminWorkflowPage() {
                         {editing ? (
                           <Input
                             aria-label="Label"
-                            className="w-48"
+                            className="w-36 sm:w-48"
                             value={draft.label}
                             onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))}
                           />
@@ -257,7 +268,9 @@ export default function AdminWorkflowPage() {
                             aria-label="Terminal"
                             className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
                             checked={draft.isTerminal}
-                            onChange={(e) => setDraft((d) => ({ ...d, isTerminal: e.target.checked }))}
+                            onChange={(e) =>
+                              setDraft((d) => ({ ...d, isTerminal: e.target.checked }))
+                            }
                           />
                         ) : status.isTerminal ? (
                           <Badge tone="info">Terminal</Badge>
@@ -272,7 +285,9 @@ export default function AdminWorkflowPage() {
                             aria-label="Active"
                             className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
                             checked={draft.isActive}
-                            onChange={(e) => setDraft((d) => ({ ...d, isActive: e.target.checked }))}
+                            onChange={(e) =>
+                              setDraft((d) => ({ ...d, isActive: e.target.checked }))
+                            }
                           />
                         ) : (
                           <Badge tone={status.isActive ? 'success' : 'neutral'}>
@@ -281,7 +296,7 @@ export default function AdminWorkflowPage() {
                         )}
                       </Td>
                       <Td>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                           {editing ? (
                             <>
                               <Button size="sm" disabled={busy} onClick={() => saveRow(status.id)}>

@@ -34,17 +34,17 @@ const STEPS = [
 
 export default function HowToSendACasePage() {
   return (
-    <Container className="py-16">
+    <Container className="py-12 sm:py-16">
       <div className="mx-auto max-w-3xl">
-        <h1 className="text-4xl font-bold text-slate-900">How to send a case</h1>
-        <p className="mt-4 text-lg text-slate-600">
+        <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">How to send a case</h1>
+        <p className="mt-4 text-base text-slate-600 sm:text-lg">
           Getting a case to our lab takes just a few minutes once your practice is set up.
         </p>
 
         <ol className="mt-12 space-y-6">
           {STEPS.map((step, i) => (
             <li key={step.title}>
-              <Card className="flex gap-5">
+              <Card className="flex gap-4 p-5 sm:gap-5 sm:p-6">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-700 font-bold text-white">
                   {i + 1}
                 </span>

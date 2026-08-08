@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { Input, Label, Textarea } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { AsyncSection, EmptyState, Spinner } from '@/components/ui/data-states';
 import { Pagination } from '@/components/ui/pagination';
 import { useApi } from '@/lib/hooks/use-api';
 import { dentistsApi } from '@/lib/api/admin';
 import { formatDate } from '@/lib/utils/format';
 import { USER_STATUS_TONES, userStatusLabel } from '@/lib/utils/user-status';
+import { cn } from '@/lib/utils/cn';
 
 interface DentistListQuery {
   status?: string;
@@ -304,15 +305,15 @@ export default function AdminDentistsPage() {
       >
         {(page) => (
           <TableWrap>
-            <Table>
+            <Table className="md:min-w-[48rem]">
               <thead>
                 <tr>
                   <Th>Name</Th>
-                  <Th>Email</Th>
-                  <Th>Clinic</Th>
-                  <Th>Tier</Th>
-                  <Th>Status</Th>
-                  <Th>Added</Th>
+                  <Th className={COL.md}>Email</Th>
+                  <Th className={COL.lg}>Clinic</Th>
+                  <Th className={COL.lg}>Tier</Th>
+                  <Th className={COL.md}>Status</Th>
+                  <Th className={COL.lg}>Added</Th>
                   <Th>Review</Th>
                 </tr>
               </thead>
@@ -326,19 +327,24 @@ export default function AdminDentistsPage() {
                       >
                         {row.user.firstName} {row.user.lastName}
                       </Link>
+                      {/* Carries the email and the status a phone drops. */}
+                      <RowMeta className="break-all md:hidden">
+                        {row.user.email} ·{' '}
+                        {userStatusLabel(row.user.status, Boolean(row.user.emailVerifiedAt))}
+                      </RowMeta>
                     </Td>
-                    <Td>{row.user.email}</Td>
-                    <Td>{row.clinicName ?? '—'}</Td>
-                    <Td>{row.tier ?? '—'}</Td>
-                    <Td>
+                    <Td className={cn(COL.md, 'break-all')}>{row.user.email}</Td>
+                    <Td className={COL.lg}>{row.clinicName ?? '—'}</Td>
+                    <Td className={COL.lg}>{row.tier ?? '—'}</Td>
+                    <Td className={COL.md}>
                       <Badge tone={USER_STATUS_TONES[row.user.status]}>
                         {userStatusLabel(row.user.status, Boolean(row.user.emailVerifiedAt))}
                       </Badge>
                     </Td>
-                    <Td>{formatDate(row.createdAt)}</Td>
+                    <Td className={COL.lg}>{formatDate(row.createdAt)}</Td>
                     <Td>
                       {row.user.status === 'pending' && row.user.emailVerifiedAt ? (
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button
                             variant="secondary"
                             disabled={reviewing === row.id}

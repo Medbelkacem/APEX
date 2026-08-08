@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { cn } from '@/lib/utils/cn';
 
 /**
@@ -39,6 +39,33 @@ function shortDate(iso: string): string {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }
 
+/**
+ * Width of the element the returned ref is attached to, in CSS pixels.
+ *
+ * A fixed viewBox scales its own text with the container: the 10px axis labels
+ * below would render at roughly 4px on a phone, which is unreadable. Measuring
+ * instead lets the chart use a 1:1 viewBox, so a font size means what it says at
+ * every width. The fallback covers the first paint and server rendering.
+ */
+function useMeasuredWidth<T extends HTMLElement>(fallback: number) {
+  const ref = useRef<T>(null);
+  const [width, setWidth] = useState(fallback);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver((entries) => {
+      const next = entries[0]?.contentRect.width ?? 0;
+      if (next > 0) setWidth(next);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, width] as const;
+}
+
 export function ChartFrame({
   title,
   subtitle,
@@ -51,8 +78,8 @@ export function ChartFrame({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
           {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
@@ -65,9 +92,7 @@ export function ChartFrame({
 }
 
 export function NoData({ label = 'No data in this period' }: { label?: string }) {
-  return (
-    <div className="grid h-48 place-items-center text-sm text-slate-400">{label}</div>
-  );
+  return <div className="grid h-48 place-items-center text-sm text-slate-400">{label}</div>;
 }
 
 /**
@@ -83,13 +108,39 @@ export function TimeSeriesChart({
   valueLabel: string;
   formatValue?: (value: number) => string;
 }) {
+  // The ref lives on this wrapper rather than inside the branch below, so the
+  // width is already known by the time data arrives and the plot is drawn.
+  const [ref, width] = useMeasuredWidth<HTMLDivElement>(720);
+
+  return (
+    <div className="relative" ref={ref}>
+      {data.length === 0 ? (
+        <NoData />
+      ) : (
+        <Series data={data} valueLabel={valueLabel} formatValue={formatValue} width={width} />
+      )}
+    </div>
+  );
+}
+
+function Series({
+  data,
+  valueLabel,
+  formatValue,
+  width,
+}: {
+  data: Point[];
+  valueLabel: string;
+  formatValue: (value: number) => string;
+  width: number;
+}) {
   const gradientId = useId();
   const [hover, setHover] = useState<number | null>(null);
 
-  if (data.length === 0) return <NoData />;
-
-  const W = 720;
-  const H = 220;
+  // One user unit = one CSS pixel, so the type sizes below hold at any width.
+  const W = Math.max(width, 240);
+  // A phone gets a shorter plot; the labels deliberately do not shrink with it.
+  const H = W < 480 ? 176 : 220;
   const PAD = { top: 12, right: 12, bottom: 28, left: 44 };
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
@@ -107,9 +158,11 @@ export function TimeSeriesChart({
   const active = hover === null ? null : data[hover];
 
   return (
-    <div className="relative">
+    <>
       <svg
         viewBox={`0 0 ${W} ${H}`}
+        width={W}
+        height={H}
         className="w-full"
         role="img"
         aria-label={`${valueLabel} over time`}
@@ -125,15 +178,29 @@ export function TimeSeriesChart({
         {/* Recessive gridlines + value axis */}
         {ticks.map((tick) => (
           <g key={tick.y}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={tick.y} y2={tick.y} stroke={GRID} strokeWidth="1" />
-            <text x={PAD.left - 8} y={tick.y + 4} textAnchor="end" fontSize="10" fill={AXIS_TEXT}>
+            <line
+              x1={PAD.left}
+              x2={W - PAD.right}
+              y1={tick.y}
+              y2={tick.y}
+              stroke={GRID}
+              strokeWidth="1"
+            />
+            <text x={PAD.left - 8} y={tick.y + 4} textAnchor="end" fontSize="11" fill={AXIS_TEXT}>
               {formatValue(tick.value)}
             </text>
           </g>
         ))}
 
         <path d={area} fill={`url(#${gradientId})`} />
-        <path d={line} fill="none" stroke={SEQ} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <path
+          d={line}
+          fill="none"
+          stroke={SEQ}
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
 
         {/* Crosshair for the hovered column */}
         {active && (
@@ -181,7 +248,7 @@ export function TimeSeriesChart({
               x={xFor(i)}
               y={H - 8}
               textAnchor={i === 0 ? 'start' : i === data.length - 1 ? 'end' : 'middle'}
-              fontSize="10"
+              fontSize="11"
               fill={AXIS_TEXT}
             >
               {shortDate(data[i].period)}
@@ -197,7 +264,7 @@ export function TimeSeriesChart({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -267,11 +334,11 @@ export function StatTile({
   loading?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
       <div className="text-sm text-slate-500">{label}</div>
       <div
         className={cn(
-          'mt-2 text-3xl font-bold tabular-nums text-slate-900',
+          'mt-2 text-2xl font-bold tabular-nums text-slate-900 sm:text-3xl',
           loading && 'h-9 w-24 animate-pulse rounded bg-slate-200',
         )}
       >

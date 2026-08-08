@@ -6,7 +6,8 @@ import { Card } from '@/components/ui/card';
 import { buttonClasses } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AsyncSection, Skeleton } from '@/components/ui/data-states';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { cn } from '@/lib/utils/cn';
 import { InvoicePayment } from '@/components/forms/invoice-payment';
 import { useApi } from '@/lib/hooks/use-api';
 import { invoicesApi } from '@/lib/api/invoices';
@@ -53,21 +54,27 @@ export default function InvoiceDetailPage() {
                   <h2 className="text-lg font-semibold text-slate-900">Line items</h2>
                   <div className="mt-4">
                     <TableWrap className="border-0">
-                      <Table className="min-w-[30rem]">
+                      <Table className="sm:min-w-[30rem]">
                         <thead>
                           <tr>
                             <Th>Description</Th>
-                            <Th className="text-right">Qty</Th>
-                            <Th className="text-right">Unit price</Th>
+                            <Th className={cn(COL.sm, 'text-right')}>Qty</Th>
+                            <Th className={cn(COL.sm, 'text-right')}>Unit price</Th>
                             <Th className="text-right">Amount</Th>
                           </tr>
                         </thead>
                         <tbody>
                           {(entity.lineItems ?? []).map((item) => (
                             <Tr key={item.id}>
-                              <Td>{item.description}</Td>
-                              <Td className="text-right">{item.quantity}</Td>
-                              <Td className="text-right">
+                              <Td>
+                                {item.description}
+                                {/* Restates the two columns a phone drops. */}
+                                <RowMeta className="sm:hidden">
+                                  {item.quantity} × {formatMoney(item.unitPrice, entity.currency)}
+                                </RowMeta>
+                              </Td>
+                              <Td className={cn(COL.sm, 'text-right')}>{item.quantity}</Td>
+                              <Td className={cn(COL.sm, 'text-right')}>
                                 {formatMoney(item.unitPrice, entity.currency)}
                               </Td>
                               <Td className="text-right font-medium text-slate-900">

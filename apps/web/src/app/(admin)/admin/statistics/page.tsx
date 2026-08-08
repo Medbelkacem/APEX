@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { buttonClasses } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/field';
 import { Select } from '@/components/ui/select';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { AsyncSection, EmptyState } from '@/components/ui/data-states';
 import { BarList, ChartFrame } from '@/components/charts/charts';
 import { useApi } from '@/lib/hooks/use-api';
@@ -81,11 +81,11 @@ function DentistRankingReport({ rows, subtitle }: { rows: DentistRankingRow[]; s
         </ChartFrame>
       }
     >
-      <Table>
+      <Table className="md:min-w-[32rem]">
         <thead>
           <tr>
             <Th>Dentist</Th>
-            <Th>Clinic</Th>
+            <Th className={COL.md}>Clinic</Th>
             <Th className="text-right">Cases</Th>
             <Th className="text-right">Revenue</Th>
           </tr>
@@ -93,8 +93,13 @@ function DentistRankingReport({ rows, subtitle }: { rows: DentistRankingRow[]; s
         <tbody>
           {rows.map((row) => (
             <Tr key={row.dentistId}>
-              <Td className="font-medium text-slate-900">{row.name}</Td>
-              <Td>{row.clinicName ?? '—'}</Td>
+              <Td className="font-medium text-slate-900">
+                {row.name}
+                {row.clinicName && (
+                  <RowMeta className="font-normal md:hidden">{row.clinicName}</RowMeta>
+                )}
+              </Td>
+              <Td className={COL.md}>{row.clinicName ?? '—'}</Td>
               <Td className="text-right tabular-nums">{row.cases}</Td>
               <Td className="text-right tabular-nums">{formatMoney(row.revenue)}</Td>
             </Tr>
@@ -200,10 +205,7 @@ export default function AdminStatisticsPage() {
         </div>
         {/* Plain link, not fetch: the session cookie authenticates it and the
             browser handles the file download. */}
-        <a
-          href={statisticsApi.exportUrl(report, range)}
-          className={buttonClasses('outline', 'md')}
-        >
+        <a href={statisticsApi.exportUrl(report, range)} className={buttonClasses('outline', 'md')}>
           Download CSV
         </a>
       </div>

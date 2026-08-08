@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
+import { COL, RowMeta, Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import { AsyncSection, EmptyState } from '@/components/ui/data-states';
 import { Pagination } from '@/components/ui/pagination';
 import { Select } from '@/components/ui/select';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/field';
 import { useApi } from '@/lib/hooks/use-api';
 import { statementsApi } from '@/lib/api/invoices';
 import { formatMoney, formatPeriod } from '@/lib/utils/format';
+import { cn } from '@/lib/utils/cn';
 
 /** Years offered in the filter: this year plus the four before it. */
 const CURRENT_YEAR = new Date().getFullYear();
@@ -71,9 +72,9 @@ export default function StatementsPage() {
               <thead>
                 <tr>
                   <Th>Period</Th>
-                  <Th className="text-right">Opening</Th>
-                  <Th className="text-right">Invoiced</Th>
-                  <Th className="text-right">Paid</Th>
+                  <Th className={cn(COL.lg, 'text-right')}>Opening</Th>
+                  <Th className={cn(COL.md, 'text-right')}>Invoiced</Th>
+                  <Th className={cn(COL.md, 'text-right')}>Paid</Th>
                   <Th className="text-right">Closing</Th>
                   <Th className="text-right">Statement</Th>
                 </tr>
@@ -83,19 +84,29 @@ export default function StatementsPage() {
                   <Tr key={statement.id}>
                     <Td className="font-medium text-slate-900">
                       {formatPeriod(statement.periodYear, statement.periodMonth)}
+                      {/* Carries the two money columns a phone drops. */}
+                      <RowMeta className="font-normal md:hidden">
+                        {formatMoney(statement.totalInvoiced)} invoiced ·{' '}
+                        {formatMoney(statement.totalPaid)} paid
+                      </RowMeta>
                     </Td>
-                    <Td className="text-right">{formatMoney(statement.openingBalance)}</Td>
-                    <Td className="text-right">{formatMoney(statement.totalInvoiced)}</Td>
-                    <Td className="text-right">{formatMoney(statement.totalPaid)}</Td>
+                    <Td className={cn(COL.lg, 'text-right')}>
+                      {formatMoney(statement.openingBalance)}
+                    </Td>
+                    <Td className={cn(COL.md, 'text-right')}>
+                      {formatMoney(statement.totalInvoiced)}
+                    </Td>
+                    <Td className={cn(COL.md, 'text-right')}>{formatMoney(statement.totalPaid)}</Td>
                     <Td className="text-right font-medium text-slate-900">
                       {formatMoney(statement.closingBalance)}
                     </Td>
                     <Td className="text-right">
                       <a
                         href={statementsApi.pdfUrl(statement.id)}
-                        className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+                        className="inline-block rounded-lg px-2.5 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
                       >
-                        Download PDF
+                        <span className="sm:hidden">PDF</span>
+                        <span className="hidden sm:inline">Download PDF</span>
                       </a>
                     </Td>
                   </Tr>
