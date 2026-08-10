@@ -35,6 +35,11 @@ export class UpdateDentistDto extends createZodDto(updateDentistSchema) {}
  * what the account may do, and tier decides what it is charged — none of them
  * can be accepted from an anonymous form. Tier stays null until an admin sets
  * it, so a self-registered dentist gets default pricing.
+ *
+ * Clinic name and address are mandatory here, unlike on the admin-created
+ * paths above: an applicant the lab has never met is only reviewable if the
+ * application says which practice it comes from and where the work would go.
+ * Both are bounded because this endpoint is anonymous.
  */
 export const registerDentistSchema = z.object({
   email: z.string().email(),
@@ -42,8 +47,8 @@ export const registerDentistSchema = z.object({
   firstName: z.string().min(1).max(120),
   lastName: z.string().min(1).max(120),
   phone: z.string().max(40).nullable().optional(),
-  clinicName: z.string().max(255).nullable().optional(),
-  clinicAddress: z.string().nullable().optional(),
+  clinicName: z.string().trim().min(1).max(255),
+  clinicAddress: z.string().trim().min(1).max(500),
 });
 export class RegisterDentistDto extends createZodDto(registerDentistSchema) {}
 

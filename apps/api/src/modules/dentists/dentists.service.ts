@@ -128,8 +128,8 @@ export class DentistsService {
           [
             {
               userId: user.id,
-              clinicName: dto.clinicName ?? null,
-              clinicAddress: dto.clinicAddress ?? null,
+              clinicName: dto.clinicName,
+              clinicAddress: dto.clinicAddress,
             },
           ],
           { session },

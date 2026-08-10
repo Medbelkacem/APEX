@@ -22,6 +22,7 @@ const APPLICANT = {
   firstName: 'Nadia',
   lastName: 'Benali',
   clinicName: 'Rue Didouche Dental',
+  clinicAddress: '12 Rue Didouche Mourad',
 };
 
 describe('Dentist registration (e2e)', () => {
@@ -93,6 +94,22 @@ describe('Dentist registration (e2e)', () => {
         .getRepository(Dentist)
         .findOneByOrFail({ userId: user.id });
       expect(dentist.clinicName).toBe(APPLICANT.clinicName);
+      expect(dentist.clinicAddress).toBe(APPLICANT.clinicAddress);
+    });
+
+    // The lab reviews applications by hand. One that does not say which
+    // practice it comes from, or where the work would be delivered, is not
+    // reviewable — so the account is never created in the first place.
+    it.each([
+      ['a missing clinic name', { clinicName: undefined }],
+      ['a missing clinic address', { clinicAddress: undefined }],
+      ['a blank clinic name', { clinicName: '   ' }],
+      ['a blank clinic address', { clinicAddress: '   ' }],
+    ])('rejects a registration with %s', async (_label, patch) => {
+      const res = await register(patch);
+
+      expect(res.status).toBe(400);
+      expect(await users().findOneBy({ email: APPLICANT.email })).toBeNull();
     });
 
     it('leaves tier unset, so pricing is not self-assigned', async () => {

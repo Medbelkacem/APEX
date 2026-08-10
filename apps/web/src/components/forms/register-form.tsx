@@ -25,8 +25,18 @@ const schema = z
     lastName: z.string().min(1, 'Enter your last name'),
     email: z.string().email('Enter a valid email'),
     phone: z.string().optional(),
-    clinicName: z.string().optional(),
-    clinicAddress: z.string().optional(),
+    // Required: the lab cannot price, invoice or ship a case without knowing
+    // which practice it belongs to and where the work goes.
+    clinicName: z
+      .string()
+      .trim()
+      .min(1, 'Enter your clinic name')
+      .max(255, 'Use 255 characters or fewer'),
+    clinicAddress: z
+      .string()
+      .trim()
+      .min(1, 'Enter your clinic address')
+      .max(500, 'Use 500 characters or fewer'),
     password,
     confirmPassword: z.string(),
   })
@@ -59,8 +69,8 @@ export function RegisterForm() {
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         phone: orNull(values.phone),
-        clinicName: orNull(values.clinicName),
-        clinicAddress: orNull(values.clinicAddress),
+        clinicName: values.clinicName.trim(),
+        clinicAddress: values.clinicAddress.trim(),
       });
       setSubmittedTo(values.email.trim());
     } catch (err) {
@@ -133,13 +143,13 @@ export function RegisterForm() {
       </div>
 
       <div>
-        <Label htmlFor="clinicName">Clinic name (optional)</Label>
+        <Label htmlFor="clinicName">Clinic name</Label>
         <Input id="clinicName" autoComplete="organization" {...register('clinicName')} />
         <FieldError>{errors.clinicName?.message}</FieldError>
       </div>
 
       <div>
-        <Label htmlFor="clinicAddress">Clinic address (optional)</Label>
+        <Label htmlFor="clinicAddress">Clinic address</Label>
         <Input id="clinicAddress" autoComplete="street-address" {...register('clinicAddress')} />
         <FieldError>{errors.clinicAddress?.message}</FieldError>
       </div>
