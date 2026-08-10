@@ -28,6 +28,9 @@ interface Draft {
   clinicalNotes: string;
 }
 
+/** Draft fields plus the attachment step, which owns no Draft key of its own. */
+type FieldErrors = Partial<Record<keyof Draft | 'files', string>>;
+
 const EMPTY: Draft = {
   caseTypeId: '',
   patientReference: '',
@@ -45,7 +48,7 @@ export default function NewCasePage() {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [files, setFiles] = useState<File[]>([]);
-  const [errors, setErrors] = useState<Partial<Record<keyof Draft, string>>>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string>();
@@ -58,7 +61,7 @@ export default function NewCasePage() {
 
   /** Validate only the fields owned by the current step. */
   function validateStep(index: number): boolean {
-    const next: Partial<Record<keyof Draft, string>> = {};
+    const next: FieldErrors = {};
     if (index === 0 && !draft.caseTypeId) next.caseTypeId = 'Select a case type to continue';
     if (index === 1) {
       if (!draft.patientReference.trim()) {
@@ -75,6 +78,11 @@ export default function NewCasePage() {
         }
       }
     }
+    // The lab cannot start work from a form alone — a case must arrive with at
+    // least one STL scan, photo or PDF attached.
+    if (index === 2 && files.length === 0) {
+      next.files = 'Attach at least one file — an STL scan, an image or a PDF';
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -85,9 +93,11 @@ export default function NewCasePage() {
   }
 
   async function submit() {
-    // Re-check every gated step in case the user jumped back and cleared a field.
+    // Re-check every gated step in case the user jumped back and cleared a
+    // field or removed the last attachment.
     if (!validateStep(0)) return setStep(0);
     if (!validateStep(1)) return setStep(1);
+    if (!validateStep(2)) return setStep(2);
 
     setSubmitting(true);
     setSubmitError(undefined);
@@ -320,14 +330,24 @@ export default function NewCasePage() {
         {/* Step 3 — files */}
         {step === 2 && (
           <fieldset>
-            <legend className="text-lg font-semibold text-slate-900">Scan files</legend>
+            <legend className="text-lg font-semibold text-slate-900">Scan files *</legend>
             <p className="mt-1 text-sm text-slate-500">
-              Attach STL scans and any supporting photos or documents. You can also add files later
-              from the case page.
+              At least one file is required — an STL scan, a photo, or a PDF. You can attach more
+              later from the case page.
             </p>
             <div className="mt-5">
-              <FileDropzone files={files} onChange={setFiles} disabled={submitting} />
+              <FileDropzone
+                files={files}
+                onChange={(next) => {
+                  setFiles(next);
+                  // Clear the "attach a file" error the moment one lands, rather
+                  // than leaving it under a populated list until the next click.
+                  if (next.length) setErrors((prev) => ({ ...prev, files: undefined }));
+                }}
+                disabled={submitting}
+              />
             </div>
+            <FieldError>{errors.files}</FieldError>
           </fieldset>
         )}
 
@@ -381,7 +401,11 @@ export default function NewCasePage() {
               <div className="py-2.5">
                 <dt className="text-slate-500">Files ({files.length})</dt>
                 <dd className="mt-1 space-y-1">
-                  {files.length === 0 && <span className="text-slate-800">No files attached</span>}
+                  {files.length === 0 && (
+                    <span className="text-red-600">
+                      No files attached — go back and add at least one
+                    </span>
+                  )}
                   {files.map((file) => (
                     <div key={file.name} className="flex justify-between gap-4">
                       <span className="truncate text-slate-800">{file.name}</span>
