@@ -1,32 +1,11 @@
-import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Container, Card } from '@/components/ui/card';
 import { buttonClasses } from '@/components/ui/button';
+import { CtaBand, Icon, IconTile, outlineOnBrand } from '@/components/marketing';
 import { loadPublicCaseTypes } from '@/lib/api/public-catalog';
 
 /** Must be a literal — Next.js analyses segment config statically. */
 export const revalidate = 3600;
-
-/**
- * 24px line icons drawn on a shared canvas so every glyph keeps the same
- * stroke weight and optical size. Each entry below supplies only its path.
- */
-function Icon({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-6 w-6"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
-}
 
 const VALUE_PROPS = [
   {
@@ -212,9 +191,9 @@ export default async function HomePage() {
           <div className="mt-10 grid gap-6 sm:mt-14 md:grid-cols-3">
             {VALUE_PROPS.map((v) => (
               <Card key={v.title} className="transition-shadow hover:shadow-md">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                <IconTile>
                   <Icon>{v.icon}</Icon>
-                </span>
+                </IconTile>
                 <h3 className="mt-4 text-lg font-semibold text-slate-900">{v.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{v.body}</p>
               </Card>
@@ -308,29 +287,17 @@ export default async function HomePage() {
         </Container>
       </section>
 
-      {/* CTA */}
-      <section className="pb-14 sm:pb-20">
-        <Container>
-          <Card className="flex flex-col items-center gap-5 bg-brand-700 p-8 text-center text-white sm:p-12">
-            <h2 className="text-2xl font-bold sm:text-3xl">Ready to send your first case?</h2>
-            <p className="max-w-xl text-brand-50">
-              Register your practice in a few minutes, or get in touch and we&apos;ll walk you
-              through portal access.
-            </p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <Link href="/register" className={buttonClasses('secondary', 'lg')}>
-                Register your practice
-              </Link>
-              <Link
-                href="/contact"
-                className="inline-flex h-12 items-center justify-center rounded-lg border border-white/40 px-7 text-base font-semibold text-white transition-colors hover:bg-white/10"
-              >
-                Contact the lab
-              </Link>
-            </div>
-          </Card>
-        </Container>
-      </section>
+      <CtaBand
+        title="Ready to send your first case?"
+        body="Register your practice in a few minutes, or get in touch and we'll walk you through portal access."
+      >
+        <Link href="/register" className={buttonClasses('secondary', 'lg')}>
+          Register your practice
+        </Link>
+        <Link href="/contact" className={outlineOnBrand}>
+          Contact the lab
+        </Link>
+      </CtaBand>
     </>
   );
 }
