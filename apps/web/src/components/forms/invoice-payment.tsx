@@ -136,7 +136,7 @@ export function InvoicePayment({
       stripe={stripePromise}
       options={{
         clientSecret: intent.clientSecret,
-        appearance: { theme: 'stripe', variables: { colorPrimary: '#0f766e' } },
+        appearance: { theme: 'stripe', variables: { colorPrimary: '#0049cc' } },
       }}
     >
       <CheckoutForm intent={intent} onPaid={onPaid} />

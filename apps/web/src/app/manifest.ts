@@ -10,8 +10,8 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Dental Lab — Case Management',
-    short_name: 'Dental Lab',
+    name: 'Apex — Case Management',
+    short_name: 'Apex',
     description:
       'Submit dental cases, upload STL scans, track production, and manage invoices.',
     start_url: '/dashboard',
@@ -19,7 +19,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     orientation: 'portrait-primary',
     background_color: '#ffffff',
-    theme_color: '#0f766e',
+    theme_color: '#001e47',
     categories: ['medical', 'productivity', 'business'],
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

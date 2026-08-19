@@ -1,14 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Container, Card } from '@/components/ui/card';
-import { buttonClasses } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/data-states';
-import { CtaBand, PageHeader, outlineOnBrand } from '@/components/marketing';
+import { CtaBand, PageHeader, ctaClasses } from '@/components/marketing';
 import { loadPublicCaseTypes } from '@/lib/api/public-catalog';
 
 export const metadata: Metadata = {
   title: 'Services',
-  description: 'The dental case types our laboratory accepts through the portal.',
+  description: 'The dental case types Apex accepts through the portal.',
 };
 
 /** Must be a literal — Next.js analyses segment config statically. */
@@ -22,34 +21,37 @@ export default async function ServicesPage() {
       <PageHeader
         eyebrow="Case types"
         title="Our services"
-        lede="A complete range of restorative and orthodontic case types, all orderable through the portal."
+        lede="High-demand restorations, refined rather than multiplied — every one of them orderable straight from the portal."
       />
 
-      <section className="py-12 sm:py-16">
+      <section className="py-16 sm:py-24">
         <Container>
           {services.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {services.map((s) => (
-                <Card key={s.name} className="transition-shadow hover:shadow-md">
-                  <h2 className="text-lg font-semibold text-slate-900">{s.name}</h2>
+                <li
+                  key={s.name}
+                  className="flex flex-col rounded-[1.75rem] bg-brand-600 p-7 text-white shadow-pill"
+                >
+                  <h2 className="text-xl font-bold">{s.name}</h2>
                   {s.description && (
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{s.description}</p>
+                    <p className="mt-2.5 text-sm leading-relaxed text-white/85">{s.description}</p>
                   )}
-                </Card>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
             /*
              * The catalog is the laboratory's own, and comes back empty when the
              * API cannot be reached. Saying so is the only honest option — a
              * hard-coded stand-in list would advertise work the lab may not do.
              */
-            <Card className="p-0">
+            <Card className="rounded-[1.75rem] border-navy-50 p-0">
               <EmptyState
                 title="The case-type list is unavailable right now"
                 description="Please try again shortly, or ask the laboratory for the current list."
                 action={
-                  <Link href="/contact" className={buttonClasses('primary', 'md')}>
+                  <Link href="/contact" className={ctaClasses('blue')}>
                     Contact the lab
                   </Link>
                 }
@@ -63,10 +65,10 @@ export default async function ServicesPage() {
         title="Need pricing for your practice?"
         body="Ask the laboratory for a price list, or see what sending a case involves."
       >
-        <Link href="/contact" className={buttonClasses('secondary', 'lg')}>
+        <Link href="/contact" className={ctaClasses('navy')}>
           Request pricing
         </Link>
-        <Link href="/how-to-send-a-case" className={outlineOnBrand}>
+        <Link href="/how-to-send-a-case" className={ctaClasses('blue')}>
           How to send a case
         </Link>
       </CtaBand>

@@ -12,7 +12,7 @@ import { useApi } from '@/lib/hooks/use-api';
 import { catalogApi } from '@/lib/api/catalog';
 import type { CaseStatus } from '@dental/shared-types';
 
-const DEFAULT_COLOR = '#0f766e';
+const DEFAULT_COLOR = '#0049cc';
 
 const BLANK_STATUS = { label: '', color: DEFAULT_COLOR, isTerminal: false };
 

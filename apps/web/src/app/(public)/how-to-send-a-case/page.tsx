@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Container, Card } from '@/components/ui/card';
-import { buttonClasses } from '@/components/ui/button';
-import { CtaBand, PageHeader, outlineOnBrand } from '@/components/marketing';
+import { Container } from '@/components/ui/card';
+import { CtaBand, Display, PageHeader, SectionRule, ctaClasses } from '@/components/marketing';
 
 export const metadata: Metadata = {
   title: 'How to Send a Case',
@@ -46,31 +45,30 @@ export default function HowToSendACasePage() {
       <PageHeader
         eyebrow="Getting started"
         title="How to send a case"
-        lede="Getting a case to our lab takes just a few minutes once your practice is set up."
+        lede="Getting a case to the lab takes just a few minutes once your practice is set up."
       />
 
-      <section className="py-12 sm:py-16">
+      <section className="py-16 sm:py-24">
         <Container>
           <div className="mx-auto max-w-3xl">
-            <ol className="space-y-4">
+            <ol className="space-y-5">
               {STEPS.map((step, i) => (
-                <li key={step.title} className="relative">
-                  {/* Rail joining this step's badge to the next one. */}
-                  {i < STEPS.length - 1 && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute left-11 top-16 hidden h-[calc(100%-2.5rem)] w-px bg-slate-200 sm:block"
-                    />
-                  )}
-                  <Card className="flex gap-4 p-5 transition-shadow hover:shadow-md sm:gap-5 sm:p-6">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-700 font-bold text-white">
+                <li key={step.title}>
+                  {/*
+                   * No rail between the badges: the steps used to be white
+                   * cards where a hairline was the only thing sequencing them,
+                   * and against a solid Super Blue pill it reads as a seam
+                   * rather than a connector. The numbers carry the order.
+                   */}
+                  <div className="flex gap-5 rounded-[1.75rem] bg-brand-600 p-6 text-white shadow-pill sm:gap-6 sm:p-7">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-navy-700 font-bold">
                       {i + 1}
                     </span>
                     <div className="min-w-0">
-                      <h2 className="text-lg font-semibold text-slate-900">{step.title}</h2>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600">{step.body}</p>
+                      <h2 className="text-lg font-bold">{step.title}</h2>
+                      <p className="mt-1.5 text-sm leading-relaxed text-white/85">{step.body}</p>
                     </div>
-                  </Card>
+                  </div>
                 </li>
               ))}
             </ol>
@@ -78,24 +76,23 @@ export default function HowToSendACasePage() {
         </Container>
       </section>
 
-      <section className="border-y border-slate-200 bg-white py-12 sm:py-16">
+      <section className="bg-navy-700 py-16 text-white sm:py-24">
         <Container>
           <div className="mx-auto max-w-3xl">
-            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              File format requirements
-            </h2>
-            <p className="mt-3 text-slate-600">
+            <SectionRule />
+            <Display className="mt-6 text-3xl sm:text-4xl">File format requirements</Display>
+            <p className="mt-5 leading-relaxed text-white/75">
               Anything outside this list is refused at upload — the portal checks the contents of
               each file, not just its extension.
             </p>
-            <dl className="mt-8 grid gap-4 sm:grid-cols-3">
+            <dl className="mt-10 grid gap-5 sm:grid-cols-3">
               {FORMATS.map((format) => (
                 <div
                   key={format.label}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-5"
+                  className="rounded-[1.5rem] border border-white/20 bg-white/5 p-6"
                 >
-                  <dt className="font-semibold text-slate-900">{format.label}</dt>
-                  <dd className="mt-1 text-sm text-slate-600">{format.detail}</dd>
+                  <dt className="font-bold">{format.label}</dt>
+                  <dd className="mt-1.5 text-sm leading-relaxed text-white/70">{format.detail}</dd>
                 </div>
               ))}
             </dl>
@@ -107,10 +104,10 @@ export default function HowToSendACasePage() {
         title="Ready when you are"
         body="Register your practice to get portal access, or ask the laboratory anything first."
       >
-        <Link href="/register" className={buttonClasses('secondary', 'lg')}>
+        <Link href="/register" className={ctaClasses('navy')}>
           Register your practice
         </Link>
-        <Link href="/contact" className={outlineOnBrand}>
+        <Link href="/contact" className={ctaClasses('blue')}>
           Contact the lab
         </Link>
       </CtaBand>

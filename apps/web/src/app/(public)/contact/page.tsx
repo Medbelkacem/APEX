@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Container, Card } from '@/components/ui/card';
 import { ContactForm } from '@/components/forms/contact-form';
-import { Icon, IconTile, PageHeader } from '@/components/marketing';
+import { Display, Icon, IconTile, PageHeader, SectionRule } from '@/components/marketing';
 
 export const metadata: Metadata = {
   title: 'Contact',
-  description: 'Get in touch with our dental laboratory — address, phone, email, and contact form.',
+  description: 'Get in touch with Apex — address, phone, email, and contact form.',
 };
 
 /**
@@ -67,26 +67,27 @@ export default function ContactPage() {
     <>
       <PageHeader
         eyebrow="Contact"
-        title="Contact us"
-        lede="Questions about partnering with the lab or sending a case? Send us a message and our team will respond promptly."
+        title="Talk to the lab"
+        lede="Communication-first support is the point. Questions about partnering or a case already in production reach the team directly."
       />
 
-      <section className="py-12 sm:py-16">
+      <section className="py-16 sm:py-24">
         <Container>
-          <div className="grid gap-8 lg:grid-cols-[1fr_1.3fr] lg:gap-12">
-            <div className="space-y-8">
+          <div className="grid gap-10 lg:grid-cols-[1fr_1.3fr] lg:gap-14">
+            <div className="space-y-6">
               {details.length > 0 && (
-                <Card>
-                  <h2 className="text-lg font-semibold text-slate-900">Laboratory details</h2>
-                  <dl className="mt-4 space-y-4 text-sm">
+                <div className="rounded-[1.75rem] bg-navy-700 p-7 text-white">
+                  <SectionRule />
+                  <h2 className="mt-5 text-lg font-bold">Laboratory details</h2>
+                  <dl className="mt-5 space-y-4 text-sm">
                     {details.map(([label, value]) => (
                       <div key={label}>
-                        <dt className="font-semibold text-slate-900">{label}</dt>
-                        <dd className="mt-0.5 text-slate-600">{value}</dd>
+                        <dt className="font-semibold">{label}</dt>
+                        <dd className="mt-0.5 text-white/70">{value}</dd>
                       </div>
                     ))}
                   </dl>
-                </Card>
+                </div>
               )}
 
               {/*
@@ -94,31 +95,34 @@ export default function ContactPage() {
                * which would leave this column empty beside a tall form. These
                * shortcuts stand on their own either way.
                */}
-              <ul className="space-y-4">
+              <ul className="space-y-5">
                 {SHORTCUTS.map((item) => (
                   <li key={item.href}>
-                    <Link href={item.href} className="block">
-                      <Card className="flex items-start gap-4 p-5 transition-shadow hover:shadow-md">
-                        <IconTile>
-                          <Icon>{item.icon}</Icon>
-                        </IconTile>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-900">{item.title}</p>
-                          <p className="mt-1 text-sm leading-relaxed text-slate-600">{item.body}</p>
-                        </div>
-                      </Card>
+                    <Link
+                      href={item.href}
+                      className="flex items-start gap-5 rounded-[1.75rem] bg-brand-600 p-6 text-white shadow-pill transition-colors hover:bg-brand-500"
+                    >
+                      <IconTile>
+                        <Icon>{item.icon}</Icon>
+                      </IconTile>
+                      <div className="min-w-0">
+                        <p className="font-bold">{item.title}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-white/85">{item.body}</p>
+                      </div>
                     </Link>
                   </li>
                 ))}
               </ul>
             </div>
 
-            <Card className="p-6 sm:p-8">
-              <h2 className="text-lg font-semibold text-slate-900">Send a message</h2>
-              <p className="mt-1 text-sm text-slate-500">
+            <Card className="rounded-[1.75rem] border-navy-50 p-7 sm:p-9">
+              <Display as="h2" className="text-2xl text-navy-700 sm:text-3xl">
+                Send a message
+              </Display>
+              <p className="mt-2 text-sm text-navy-600/70">
                 Tell us a little about your practice and what you need.
               </p>
-              <div className="mt-6">
+              <div className="mt-7">
                 <ContactForm />
               </div>
             </Card>

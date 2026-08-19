@@ -39,7 +39,7 @@ describe('web app manifest', () => {
   });
 
   it('uses the brand colour for the launcher and status bar', () => {
-    expect(m.theme_color).toBe('#0f766e');
+    expect(m.theme_color).toBe('#001e47');
   });
 
   it('points its shortcuts at real routes', () => {

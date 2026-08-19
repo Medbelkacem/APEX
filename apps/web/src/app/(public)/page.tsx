@@ -1,26 +1,17 @@
+import Image from 'next/image';
 import Link from 'next/link';
-import { Container, Card } from '@/components/ui/card';
-import { buttonClasses } from '@/components/ui/button';
-import { CtaBand, Icon, IconTile, outlineOnBrand } from '@/components/marketing';
+import { Container } from '@/components/ui/card';
+import { CtaBand, Display, FeaturePill, SectionRule, ctaClasses } from '@/components/marketing';
 import { loadPublicCaseTypes } from '@/lib/api/public-catalog';
 
 /** Must be a literal — Next.js analyses segment config statically. */
 export const revalidate = 3600;
 
-const VALUE_PROPS = [
+/** "Lab Reality" — the four frustrations the brand positions against. */
+const PROBLEMS = [
   {
-    title: 'Digital case submission',
-    body: 'Submit cases with STL scans, clinical notes, and specifications through a guided multi-step form.',
-    icon: (
-      <>
-        <path d="M12 16V4m0 0L8 8m4-4 4 4" />
-        <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-      </>
-    ),
-  },
-  {
-    title: 'Real-time tracking',
-    body: 'Follow every case from received to shipped with a transparent production timeline.',
+    title: 'Unreliable turnaround',
+    body: 'Erratic lab timelines hinder scheduling and managing patient expectations.',
     icon: (
       <>
         <circle cx="12" cy="12" r="8.5" />
@@ -29,261 +20,372 @@ const VALUE_PROPS = [
     ),
   },
   {
-    title: 'Invoices & statements',
-    body: 'Download invoices, pay online, and receive monthly statements — all in one place.',
+    title: 'Inconsistent fit',
+    body: 'Poor fit and remakes interrupt treatment flow and waste valuable chair time.',
     icon: (
       <>
-        <path d="M6 3.5h12v17l-2.5-1.75L13 20.5l-2.5-1.75L8 20.5 6 19.25z" />
-        <path d="M9.5 8.5h5M9.5 12h5" />
+        <path d="M12 4.5 21 19.5H3z" />
+        <path d="M12 10v4M12 16.8h.01" />
+      </>
+    ),
+  },
+  {
+    title: 'Slow lab communication',
+    body: 'Delayed responses and complex channels create friction during cases.',
+    icon: (
+      <>
+        <path d="M20.5 12a7.8 7.8 0 0 1-8.5 7.7L6.5 21l1.2-4.2A7.8 7.8 0 1 1 20.5 12Z" />
+        <path d="M12 8.5v3.5M12 15.2h.01" />
+      </>
+    ),
+  },
+  {
+    title: 'Unclear pricing',
+    body: 'Variable fees and vague policies hinder cost forecasting and margin protection.',
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M14.5 9.3a2.6 2.6 0 0 0-2.5-1.5c-1.5 0-2.4.8-2.4 1.9 0 2.7 5 1.5 5 4.3 0 1.2-1 2.1-2.6 2.1a2.7 2.7 0 0 1-2.6-1.6M12 6.2v11.6" />
       </>
     ),
   },
 ];
 
-/** Condensed from the How to Send a Case page, which carries the full version. */
-const STEPS = [
+/** "Our Core Solutions" — what Apex does about each of them. */
+const SOLUTIONS = [
   {
-    title: 'Register your practice',
-    body: 'Create an account with your clinic details. The laboratory reviews it and opens portal access.',
+    title: 'Direct communication',
+    body: 'Immediate access to our team via WhatsApp. No phone trees, no delays.',
+    icon: (
+      <>
+        <path d="M20.5 11.5a7.8 7.8 0 0 1-8.5 7.7L6.5 20.5l1.2-4.2A7.8 7.8 0 1 1 20.5 11.5Z" />
+      </>
+    ),
   },
   {
-    title: 'Send the case',
-    body: 'Choose a case type, add the patient reference and specifications, then attach your scans.',
+    title: 'Focused-SKU model',
+    body: 'We don’t do everything. We do four things flawlessly to reduce error rates.',
+    icon: <path d="M13.5 3 5 13.5h5.5L10 21l8.5-10.5H13z" />,
   },
   {
-    title: 'Track to delivery',
-    body: 'Watch each status change, download deliverables, and settle invoices without a phone call.',
+    title: 'Clinically proven',
+    body: '100% medical-grade multi-layered zirconia and IPS e.max. No experimental gimmicks.',
+    icon: (
+      <>
+        <circle cx="12" cy="9.5" r="5.5" />
+        <path d="M8.5 14.2 7.5 21l4.5-2.3L16.5 21l-1-6.8" />
+      </>
+    ),
+  },
+  {
+    title: 'Clear pricing',
+    body: 'Transparent rates and a clearly defined remake policy to protect your margins.',
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M14.5 9.3a2.6 2.6 0 0 0-2.5-1.5c-1.5 0-2.4.8-2.4 1.9 0 2.7 5 1.5 5 4.3 0 1.2-1 2.1-2.6 2.1a2.7 2.7 0 0 1-2.6-1.6M12 6.2v11.6" />
+      </>
+    ),
   },
 ];
 
-/** The formats the portal actually accepts, with their real per-file ceilings. */
-const FORMATS = [
-  { label: 'STL scans', detail: 'Binary or ASCII, up to 100 MB per file' },
-  { label: 'Photographs', detail: 'JPG or PNG, up to 10 MB each' },
-  { label: 'Documents', detail: 'PDF, up to 25 MB each' },
+/**
+ * The four restorations named in the brand's own landing-page design.
+ *
+ * The live catalog is the laboratory's and is what the Services page and the
+ * case form read, so it wins whenever it answers — and it is shown whole, never
+ * trimmed to four, because hiding a case type the lab actually accepts would
+ * misrepresent the offering just as surely as inventing one. This list is only
+ * the fallback for an unreachable API, and it is the brand's copy rather than
+ * anything made up here.
+ */
+const CORE_SKUS: Array<{ name: string; description: string | null }> = [
+  { name: 'Full Contour Zirconia', description: 'Reliable fit for everyday restorations.' },
+  { name: 'IPS e.max Crown', description: 'High aesthetics with controlled turnaround.' },
+  { name: 'Screw-Retained Zirconia', description: 'Reduced complication risk.' },
+  {
+    name: 'Zirconia Full-Arch Implant',
+    description: 'Structured, predictable workflow for high-value cases.',
+  },
 ];
 
-/** The default lab workflow, shown as an illustration rather than live data. */
-const PIPELINE = [
-  { label: 'Received', state: 'done' },
-  { label: 'In Production', state: 'current' },
-  { label: 'Shipped', state: 'todo' },
-] as const;
+/** What a first trial with the lab includes. */
+const TRIAL = [
+  {
+    title: 'First remake covered',
+    body: 'Zero cost on your first remake',
+    icon: (
+      <>
+        <path d="M4 11.5h16V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM3 7.5h18v4H3zM12 7.5V21" />
+        <path d="M12 7.5S10.8 3 8.4 3a2.2 2.2 0 0 0 0 4.5zM12 7.5S13.2 3 15.6 3a2.2 2.2 0 0 1 0 4.5z" />
+      </>
+    ),
+  },
+  {
+    title: 'Direct support',
+    body: 'Dedicated WhatsApp access',
+    icon: (
+      <path d="M20 15.5v2.4a1.6 1.6 0 0 1-1.8 1.6 15.6 15.6 0 0 1-6.8-2.4 15.4 15.4 0 0 1-4.7-4.7A15.6 15.6 0 0 1 4.3 5.6 1.6 1.6 0 0 1 5.9 3.9h2.4a1.6 1.6 0 0 1 1.6 1.4c.1.8.3 1.5.6 2.2a1.6 1.6 0 0 1-.4 1.7l-1 1a12.4 12.4 0 0 0 4.7 4.7l1-1a1.6 1.6 0 0 1 1.7-.4c.7.3 1.4.5 2.2.6a1.6 1.6 0 0 1 1.3 1.4Z" />
+    ),
+  },
+  {
+    title: 'Full contour zirconia',
+    body: 'Flat rate for your first month',
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M14.5 9.3a2.6 2.6 0 0 0-2.5-1.5c-1.5 0-2.4.8-2.4 1.9 0 2.7 5 1.5 5 4.3 0 1.2-1 2.1-2.6 2.1a2.7 2.7 0 0 1-2.6-1.6M12 6.2v11.6" />
+      </>
+    ),
+  },
+];
+
+/**
+ * The design's headline counts the restorations out loud — "Four Perfected Core
+ * Solutions" — which only stays true while the catalog holds four. Rather than
+ * print a number the grid below contradicts, the numeral is read off whatever
+ * the laboratory has actually published, and drops out entirely past the point
+ * where spelling it would read as a boast.
+ */
+const COUNT_WORDS = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
+
+function solutionsHeading(count: number): string {
+  const word = COUNT_WORDS[count];
+  return word ? `${word} Perfected Core Solutions` : 'Perfected Core Solutions';
+}
 
 export default async function HomePage() {
   /** Same admin-managed catalog the Services page reads — never a static list. */
   const caseTypes = await loadPublicCaseTypes();
+  const skus = caseTypes.length > 0 ? caseTypes : CORE_SKUS;
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-slate-200 bg-gradient-to-b from-brand-50 via-brand-50/40 to-white">
-        {/* Soft brand wash behind the copy; purely decorative. */}
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      {/*
+       * The design gives the hero roughly 900px of height at desktop, which is
+       * more than the copy needs — a minimum plus vertical centring holds that
+       * proportion without padding that has to be re-tuned per breakpoint.
+       */}
+      <section className="relative isolate flex min-h-[36rem] items-center overflow-hidden bg-navy-800 lg:min-h-[50rem]">
+        <Image
+          src="/images/lab-workstation.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+        {/*
+         * The design turns the photograph into a Super Blue duotone. `color`
+         * takes the hue from the overlay and the light from the picture, which
+         * is what keeps the workstation readable; multiplying instead would
+         * crush it to a navy silhouette. The gradient on top is only there to
+         * darken the two edges the headline and the header sit against.
+         */}
+        <div aria-hidden="true" className="absolute inset-0 bg-brand-600 mix-blend-color" />
+        <div aria-hidden="true" className="absolute inset-0 bg-brand-700/55" />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-24 h-[28rem] w-[28rem] rounded-full bg-brand-200/40 blur-3xl"
+          className="absolute inset-0 bg-gradient-to-b from-navy-900/60 via-navy-900/30 to-navy-900/60"
         />
-        <Container className="relative py-14 sm:py-20 lg:py-28">
-          <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-16">
-            <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-brand-800 ring-1 ring-brand-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden="true" />
-                For dental practices
-              </span>
-              <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
-                Precision dental work,{' '}
-                {/* Kept on one line so the accent never breaks mid-phrase. */}
-                <span className="whitespace-nowrap text-brand-700">fully digital</span>
-              </h1>
-              <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-                Send cases, upload 3D scans, and track production without a single phone call. A
-                modern portal that connects your practice to our laboratory.
-              </p>
-              {/* Full-width and stacked on a phone; side by side from `sm` up. */}
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
-                <Link
-                  href="/register"
-                  className={`${buttonClasses('primary', 'lg')} w-full sm:w-auto`}
-                >
-                  Register your practice
-                </Link>
-                <Link
-                  href="/how-to-send-a-case"
-                  className={`${buttonClasses('outline', 'lg')} w-full sm:w-auto`}
-                >
-                  How it works
-                </Link>
-              </div>
-              <p className="mt-5 text-sm text-slate-500">
-                Already a partner?{' '}
-                <Link href="/login" className="font-medium text-brand-700 hover:underline">
-                  Sign in to the portal
-                </Link>
-              </p>
-            </div>
 
-            {/* Illustration of the workflow the portal tracks. */}
-            <Card
-              aria-hidden="true"
-              className="hidden bg-white/80 p-5 shadow-md backdrop-blur lg:block"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Case progress
-              </p>
-              <ol className="mt-4 space-y-1">
-                {PIPELINE.map((stage, index) => (
-                  <li key={stage.label} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <span
-                        className={
-                          stage.state === 'todo'
-                            ? 'mt-1 h-3 w-3 rounded-full border-2 border-slate-300 bg-white'
-                            : 'mt-1 h-3 w-3 rounded-full bg-brand-600'
-                        }
-                      />
-                      {index < PIPELINE.length - 1 && (
-                        <span className="my-1 w-px flex-1 bg-slate-200" />
-                      )}
-                    </div>
-                    <div className="pb-4">
-                      <p
-                        className={
-                          stage.state === 'todo'
-                            ? 'text-sm text-slate-400'
-                            : 'text-sm font-medium text-slate-800'
-                        }
-                      >
-                        {stage.label}
-                      </p>
-                      {stage.state === 'current' && (
-                        <p className="text-xs text-brand-700">In progress</p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-              <div className="mt-2 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                {['STL', 'JPG', 'PNG', 'PDF'].map((format) => (
-                  <span
-                    key={format}
-                    className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600"
-                  >
-                    {format}
-                  </span>
-                ))}
-              </div>
-            </Card>
+        <Container className="relative w-full pb-16 pt-32 text-center sm:pb-20 sm:pt-36">
+          <Display
+            as="h1"
+            className="mx-auto max-w-[52rem] text-4xl text-white sm:text-5xl lg:text-[4rem]"
+          >
+            Stop Wasting Chair Time On Unpredictable Lab Work.
+          </Display>
+          <p className="mx-auto mt-7 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
+            Apex is a digital lab partner for US general dentists — built around operational
+            precision, not a wide catalog. Four high-demand restorations. Consistent fit.
+            Predictable turnaround.
+          </p>
+          <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
+            <Link href="/register" className={ctaClasses('pearl')}>
+              Submit your case
+            </Link>
+            <Link href="/contact" className={ctaClasses('onDark')}>
+              Book a consultation
+            </Link>
           </div>
         </Container>
       </section>
 
-      {/* Value props */}
-      <section className="py-14 sm:py-20">
+      {/* ── Lab Reality ──────────────────────────────────────────────────── */}
+      <section className="py-16 sm:py-24">
         <Container>
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              Everything your practice needs
-            </h2>
-            <p className="mt-4 text-slate-600">
-              A single workflow from submission to payment, designed to save your team time.
-            </p>
-          </div>
-          <div className="mt-10 grid gap-6 sm:mt-14 md:grid-cols-3">
-            {VALUE_PROPS.map((v) => (
-              <Card key={v.title} className="transition-shadow hover:shadow-md">
-                <IconTile>
-                  <Icon>{v.icon}</Icon>
-                </IconTile>
-                <h3 className="mt-4 text-lg font-semibold text-slate-900">{v.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{v.body}</p>
-              </Card>
-            ))}
-          </div>
-        </Container>
-      </section>
-
-      {/* How it works */}
-      <section className="border-y border-slate-200 bg-white py-14 sm:py-20">
-        <Container>
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-16">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-                Three steps to your first case
-              </h2>
-              <p className="mt-4 text-slate-600">
-                No new software to install — everything runs in the browser your practice already
-                uses.
+          <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-16">
+            {/* Copy first on a phone; the design keeps it right of the list on desktop. */}
+            <div className="lg:order-2">
+              <SectionRule />
+              <Display className="mt-6 text-3xl text-navy-700 sm:text-4xl lg:text-[3.25rem]">
+                Lab Reality
+              </Display>
+              <p className="mt-5 max-w-xl leading-relaxed text-navy-600/80">
+                Unpredictable lab performance creates operational stress inside busy dental
+                practices. These are the issues most dentists face when working with traditional
+                labs.
               </p>
-              <Link
-                href="/how-to-send-a-case"
-                className="mt-6 inline-flex text-sm font-semibold text-brand-700 hover:underline"
-              >
-                Read the full walkthrough →
-              </Link>
+              <div className="relative mt-8 aspect-[4/3] overflow-hidden rounded-[1.75rem] shadow-pill">
+                <Image
+                  src="/images/chairside.jpg"
+                  alt="A clinician seating a restoration chairside."
+                  fill
+                  sizes="(min-width: 1024px) 40vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
             </div>
 
-            <ol className="grid gap-4 sm:grid-cols-3">
-              {STEPS.map((step, index) => (
-                <li key={step.title} className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-700 text-sm font-bold text-white">
-                    {index + 1}
-                  </span>
-                  <h3 className="mt-4 font-semibold text-slate-900">{step.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{step.body}</p>
+            <ul className="space-y-5 lg:order-1 lg:pt-4">
+              {PROBLEMS.map((problem) => (
+                <li key={problem.title}>
+                  <FeaturePill {...problem} />
                 </li>
               ))}
-            </ol>
+            </ul>
           </div>
         </Container>
       </section>
 
-      {/* Services summary — rendered only when the catalog answered. */}
-      {caseTypes.length > 0 && (
-        <section className="bg-slate-900 py-14 text-white sm:py-20">
-          <Container className="text-center">
-            <h2 className="text-2xl font-bold sm:text-3xl">Case types we handle</h2>
-            <p className="mx-auto mt-4 max-w-xl text-slate-300">
-              Every restoration below can be ordered straight from the portal.
-            </p>
-            <div className="mx-auto mt-10 flex max-w-3xl flex-wrap justify-center gap-2 sm:gap-3">
-              {caseTypes.map((type) => (
-                <span
-                  key={type.id}
-                  className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm"
-                >
-                  {type.name}
-                </span>
-              ))}
-            </div>
-            <div className="mt-10">
-              <Link href="/services" className={buttonClasses('primary', 'lg')}>
-                Explore services
-              </Link>
-            </div>
-          </Container>
-        </section>
-      )}
-
-      {/* Accepted files */}
-      <section className="py-14 sm:py-20">
+      {/* ── Our Core Solutions ───────────────────────────────────────────── */}
+      <section className="py-16 sm:py-24">
         <Container>
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              Send the files you already have
-            </h2>
-            <p className="mt-4 text-slate-600">
-              Upload straight from your intraoral scanner or design software — every case needs at
-              least one attachment.
+          <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-16">
+            <div>
+              <SectionRule />
+              <Display className="mt-6 text-3xl text-navy-700 sm:text-4xl lg:text-[3.25rem]">
+                Our Core Solutions
+              </Display>
+              <p className="mt-5 max-w-xl leading-relaxed text-navy-600/80">
+                Apex operates as a specialized digital lab partner specifically for general dentists
+                within the United States. Unlike traditional labs that offer a vast, unmanageable
+                catalog, Apex focuses on operational precision and a highly disciplined, focused-SKU
+                model.
+              </p>
+              <div className="relative mt-8 aspect-[4/3] overflow-hidden rounded-[1.75rem] shadow-pill">
+                <Image
+                  src="/images/milling-unit.jpg"
+                  alt="A technician loading a milling unit in the laboratory."
+                  fill
+                  sizes="(min-width: 1024px) 40vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+
+            <ul className="space-y-5 lg:pt-4">
+              {SOLUTIONS.map((solution) => (
+                <li key={solution.title}>
+                  <FeaturePill {...solution} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Container>
+      </section>
+
+      {/* ── Four Perfected Core Solutions ────────────────────────────────── */}
+      <section className="relative isolate overflow-hidden bg-brand-600 py-16 text-white sm:py-24">
+        <Image
+          src="/images/appliances.jpg"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover opacity-25 mix-blend-luminosity"
+        />
+        <div aria-hidden="true" className="absolute inset-0 bg-brand-600/85" />
+
+        <Container className="relative">
+          <div className="text-center">
+            <Display className="mx-auto max-w-3xl text-3xl sm:text-4xl lg:text-[3.25rem]">
+              {solutionsHeading(skus.length)}
+            </Display>
+            <p className="mx-auto mt-6 max-w-2xl leading-relaxed text-white/85">
+              Instead of offering dozens of services, Apex refines and optimizes a limited number of
+              high-demand restorations. This reduces error rates and improves consistency.
             </p>
           </div>
-          <dl className="mt-10 grid gap-4 sm:mt-12 sm:grid-cols-3">
-            {FORMATS.map((format) => (
-              <div key={format.label} className="rounded-xl border border-slate-200 bg-white p-5">
-                <dt className="font-semibold text-slate-900">{format.label}</dt>
-                <dd className="mt-1 text-sm text-slate-600">{format.detail}</dd>
-              </div>
+
+          {/*
+           * Two up, as the design has it — but laid out with wrapping rather
+           * than a grid so that a catalog with an odd number of case types
+           * centres its last card instead of leaving a hole beside it.
+           */}
+          <ul className="mt-12 flex flex-wrap justify-center gap-5 sm:mt-16">
+            {skus.map((sku) => (
+              <li
+                key={sku.name}
+                className="flex w-full flex-col items-center justify-center rounded-[1.75rem] border border-white/25 bg-white/10 p-8 text-center backdrop-blur-sm sm:w-[calc(50%-0.625rem)] sm:p-10"
+              >
+                <h3 className="text-xl font-bold sm:text-2xl">{sku.name}</h3>
+                {sku.description && (
+                  <p className="mt-2 max-w-xs text-sm leading-relaxed text-white/85">
+                    {sku.description}
+                  </p>
+                )}
+              </li>
             ))}
-          </dl>
+          </ul>
+
+          <div className="mt-12 text-center">
+            <Link href="/services" className={ctaClasses('pearl')}>
+              Explore services
+            </Link>
+          </div>
+        </Container>
+      </section>
+
+      {/* ── Start with a small trial ─────────────────────────────────────── */}
+      <section className="py-16 sm:py-24">
+        <Container className="text-center">
+          <SectionRule className="mx-auto" />
+          <Display className="mx-auto mt-8 max-w-4xl text-3xl text-navy-700 sm:text-4xl lg:text-[3.25rem]">
+            {/* Broken by hand: left to wrap, the line splits "Long-Term" at the hyphen. */}
+            <span className="block">Start with a Small Trial.</span>
+            <span className="block">No Long-Term Commitment.</span>
+          </Display>
+          <p className="mx-auto mt-6 max-w-xl leading-relaxed text-navy-600/80">
+            We encourage new partners to begin with a small number of cases to experience our
+            workflow firsthand.
+          </p>
+
+          <ul className="mt-12 grid gap-5 sm:mt-14 md:grid-cols-3">
+            {TRIAL.map((item) => (
+              <li
+                key={item.title}
+                className="flex flex-col items-center rounded-[1.75rem] bg-brand-600 p-8 text-white shadow-pill"
+              >
+                <span className="grid h-14 w-14 place-items-center rounded-full bg-navy-700">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.6}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-6 w-6"
+                    aria-hidden="true"
+                  >
+                    {item.icon}
+                  </svg>
+                </span>
+                <h3 className="mt-5 text-lg font-bold">{item.title}</h3>
+                <p className="mt-1.5 text-sm text-white/85">{item.body}</p>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-12 flex flex-col justify-center gap-4 sm:flex-row">
+            <Link href="/register" className={ctaClasses('navy')}>
+              Submit your first case
+            </Link>
+            <Link href="/contact" className={ctaClasses('blue')}>
+              Book a consultation
+            </Link>
+          </div>
         </Container>
       </section>
 
@@ -291,11 +393,11 @@ export default async function HomePage() {
         title="Ready to send your first case?"
         body="Register your practice in a few minutes, or get in touch and we'll walk you through portal access."
       >
-        <Link href="/register" className={buttonClasses('secondary', 'lg')}>
+        <Link href="/register" className={ctaClasses('navy')}>
           Register your practice
         </Link>
-        <Link href="/contact" className={outlineOnBrand}>
-          Contact the lab
+        <Link href="/how-to-send-a-case" className={ctaClasses('blue')}>
+          How it works
         </Link>
       </CtaBand>
     </>

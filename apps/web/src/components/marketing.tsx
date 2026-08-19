@@ -1,20 +1,40 @@
 import type { ReactNode } from 'react';
-import { Card, Container } from '@/components/ui/card';
+import { cn } from '@/lib/utils/cn';
+import { Container } from '@/components/ui/card';
 
 /**
- * Chrome shared by the public marketing pages.
+ * The Apex marketing language, factored out of the pages that use it.
  *
- * Each page used to re-derive its own heading sizes, section padding and
- * closing panel, which is why no two of them opened or closed the same way.
- * The pieces live here so there is one definition of the rhythm; the home
- * page's hero is deliberately not one of them, being a different composition.
+ * Every element here is lifted from the landing-page design: the short Super
+ * Blue rule that opens a section, the display-serif headline under it, the blue
+ * pill with a navy icon disc that carries each feature, and the pill-shaped
+ * uppercase CTAs. Keeping them in one place is what stops the five public pages
+ * from each re-deriving their own version of the same rhythm.
  */
+
+/** Pill-shaped uppercase CTA — the mockup's button, distinct from the portal's. */
+type CtaTone = 'pearl' | 'navy' | 'blue' | 'onDark';
+
+const CTA_TONES: Record<CtaTone, string> = {
+  pearl: 'bg-pearl text-navy-700 hover:bg-pearl-200',
+  navy: 'bg-navy-700 text-white hover:bg-navy-800',
+  blue: 'bg-brand-600 text-white hover:bg-brand-700',
+  onDark: 'border border-white/45 text-white hover:bg-white/10',
+};
+
+export function ctaClasses(tone: CtaTone = 'blue'): string {
+  return cn(
+    'inline-flex h-12 items-center justify-center rounded-full px-8 text-sm font-semibold uppercase tracking-wide transition-colors',
+    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+    CTA_TONES[tone],
+  );
+}
 
 /**
  * 24px line icons drawn on a shared canvas so every glyph keeps the same
  * stroke weight and optical size. Callers supply only the paths.
  */
-export function Icon({ children }: { children: ReactNode }) {
+export function Icon({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -23,7 +43,7 @@ export function Icon({ children }: { children: ReactNode }) {
       strokeWidth={1.6}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="h-6 w-6"
+      className={cn('h-6 w-6', className)}
       aria-hidden="true"
     >
       {children}
@@ -31,12 +51,82 @@ export function Icon({ children }: { children: ReactNode }) {
   );
 }
 
-/** The brand-tinted square the icons sit in, on light surfaces. */
-export function IconTile({ children }: { children: ReactNode }) {
+/** The navy disc the icons sit in, inside a blue feature pill. */
+export function IconTile({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+    <span
+      className={cn(
+        'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-navy-700 text-white',
+        className,
+      )}
+    >
       {children}
     </span>
+  );
+}
+
+/** The short Super Blue rule that opens every section in the design. */
+export function SectionRule({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('block h-1 w-24 rounded-full bg-brand-600', className)}
+    />
+  );
+}
+
+/**
+ * The display-serif headline. Rendering it through one component is what keeps
+ * the optical-size pin and the tight leading — both of which a bare `<h2>` with
+ * `font-display` would miss — attached to every headline on the site.
+ */
+export function Display({
+  as: Tag = 'h2',
+  className,
+  children,
+}: {
+  as?: 'h1' | 'h2' | 'h3';
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tag className={cn('font-display font-bold leading-[1.08] tracking-tight', className)}>
+      {children}
+    </Tag>
+  );
+}
+
+/**
+ * The blue feature pill: an icon disc, a title, and a line of body copy. The
+ * design uses it in a stacked column beside a photo and again as a standalone
+ * card, so the row direction is the only thing callers vary.
+ */
+export function FeaturePill({
+  title,
+  body,
+  icon,
+  className,
+}: {
+  title: string;
+  body: string;
+  icon: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-start gap-4 rounded-[1.75rem] bg-brand-600 p-5 text-white shadow-pill sm:gap-5 sm:p-6',
+        className,
+      )}
+    >
+      <IconTile>
+        <Icon>{icon}</Icon>
+      </IconTile>
+      <div className="min-w-0">
+        <h3 className="text-lg font-bold leading-snug">{title}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-white/85">{body}</p>
+      </div>
+    </div>
   );
 }
 
@@ -51,23 +141,35 @@ export function PageHeader({
   lede?: string;
 }) {
   return (
-    <section className="relative overflow-hidden border-b border-slate-200 bg-gradient-to-b from-brand-50 via-brand-50/40 to-white">
-      {/* Soft brand wash behind the copy; purely decorative. */}
-      <div
+    <section className="relative overflow-hidden bg-navy-700 text-white">
+      {/*
+       * The logomark blown up and bled off the right edge — the treatment the
+       * guidelines use on the Mission & Vision spread. Decorative only.
+       */}
+      <span
         aria-hidden="true"
-        className="pointer-events-none absolute -right-24 -top-32 h-[24rem] w-[24rem] rounded-full bg-brand-200/40 blur-3xl"
+        className="pointer-events-none absolute -right-24 -top-40 hidden h-[38rem] w-[38rem] bg-current text-white/[0.07] sm:block"
+        style={{
+          maskImage: 'url(/brand/apex-mark.svg)',
+          WebkitMaskImage: 'url(/brand/apex-mark.svg)',
+          maskSize: 'contain',
+          WebkitMaskSize: 'contain',
+          maskRepeat: 'no-repeat',
+          WebkitMaskRepeat: 'no-repeat',
+        }}
       />
-      <Container className="relative py-12 sm:py-16">
+      {/* pt clears the fixed header, which paints over this band by design. */}
+      <Container className="relative pb-16 pt-36 sm:pb-20 sm:pt-40">
         <div className="max-w-3xl">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-brand-800 ring-1 ring-brand-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden="true" />
+          <SectionRule />
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-brand-200">
             {eyebrow}
-          </span>
-          <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          </p>
+          <Display as="h1" className="mt-3 text-4xl sm:text-5xl">
             {title}
-          </h1>
+          </Display>
           {lede && (
-            <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
+            <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
               {lede}
             </p>
           )}
@@ -78,13 +180,9 @@ export function PageHeader({
 }
 
 /**
- * A link styled to sit on the brand-700 panel below, where the outline button
- * variant's slate border would all but disappear.
+ * The closing panel each marketing page signs off with — the design's centred
+ * headline, lede and CTA row on white.
  */
-export const outlineOnBrand =
-  'inline-flex h-12 items-center justify-center rounded-lg border border-white/40 px-7 text-base font-semibold text-white transition-colors hover:bg-white/10';
-
-/** The closing panel each marketing page signs off with. */
 export function CtaBand({
   title,
   body,
@@ -94,19 +192,15 @@ export function CtaBand({
   body?: string;
   children?: ReactNode;
 }) {
-  /*
-   * Only a little top padding of its own: the content section above always
-   * carries the larger `py-12`/`py-14` bottom gap, and doubling both leaves the
-   * panel adrift at the foot of the page.
-   */
   return (
-    <section className="pb-14 pt-4 sm:pb-20 sm:pt-6">
-      <Container>
-        <Card className="flex flex-col items-center gap-5 bg-brand-700 p-8 text-center text-white sm:p-12">
-          <h2 className="text-2xl font-bold sm:text-3xl">{title}</h2>
-          {body && <p className="max-w-xl text-brand-50">{body}</p>}
-          {children && <div className="flex flex-wrap justify-center gap-3">{children}</div>}
-        </Card>
+    <section className="border-t border-navy-50 py-16 sm:py-24">
+      <Container className="flex flex-col items-center text-center">
+        <SectionRule />
+        <Display className="mt-8 max-w-3xl text-3xl text-navy-700 sm:text-4xl lg:text-[3.25rem]">
+          {title}
+        </Display>
+        {body && <p className="mt-5 max-w-xl text-navy-600/80">{body}</p>}
+        {children && <div className="mt-9 flex flex-wrap justify-center gap-4">{children}</div>}
       </Container>
     </section>
   );

@@ -16,9 +16,9 @@ import { cn } from '@/lib/utils/cn';
  *    never rests on colour alone.
  */
 
-/** Sequential hue for magnitude — the brand teal, dark enough for 3:1 contrast. */
-const SEQ = '#0f766e';
-const SEQ_SOFT = 'rgba(15, 118, 110, 0.14)';
+/** Sequential hue for magnitude — Super Blue, dark enough for 3:1 contrast. */
+const SEQ = '#0049cc';
+const SEQ_SOFT = 'rgba(0, 73, 204, 0.14)';
 const GRID = '#e2e8f0';
 const AXIS_TEXT = '#64748b';
 
