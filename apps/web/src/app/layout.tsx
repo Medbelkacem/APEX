@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Poppins, Fraunces } from 'next/font/google';
+import { Poppins } from 'next/font/google';
+import localFont from 'next/font/local';
 import { ServiceWorkerRegistration } from '@/components/service-worker';
 import '@/styles/globals.css';
 
@@ -12,17 +13,27 @@ const poppins = Poppins({
 });
 
 /**
- * Stand-in for Muslone, the licensed display face.
+ * Muslone, the brand's display face, recovered from the copy the brand book
+ * embeds. That copy is a subset: it carries every letter and digit but none of
+ * the punctuation, so `muslone.woff2` maps only the glyphs it really has and
+ * the marks it lacks — the full stop, hyphen, comma and apostrophe — fall
+ * through to Georgia. See `fontFamily.display` in the Tailwind config.
  *
- * Loaded as the variable font so the optical-size axis comes with it: Fraunces
- * defaults `opsz` to its text cut, whose serifs are far too sturdy at headline
- * size, and globals.css pins it to the display end.
+ * Declared at 700 because that single cut is the heavy one the design sets its
+ * headlines in, and `Display` asks for `font-bold`: were it declared at 400 the
+ * browser would smear a synthetic bold over an already-heavy face.
  */
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  axes: ['opsz'],
+const muslone = localFont({
+  src: '../fonts/muslone.woff2',
+  weight: '700',
+  style: 'normal',
   variable: '--font-display',
   display: 'swap',
+  fallback: ['Georgia', 'serif'],
+  // Georgia is the intended stand-in for the missing punctuation, and it is a
+  // closer match to Muslone's weight than the metric-adjusted Arial Next would
+  // otherwise splice in ahead of it.
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
@@ -56,7 +67,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${poppins.variable} ${fraunces.variable}`}>
+    <html lang="en" className={`${poppins.variable} ${muslone.variable}`}>
       <body>
         {children}
         <ServiceWorkerRegistration />

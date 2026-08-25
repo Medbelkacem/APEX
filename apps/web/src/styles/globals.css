@@ -26,15 +26,6 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/*
- * Fraunces stands in for Muslone and is a variable font: without pinning the
- * optical-size axis to its display end the browser picks the text-size cut,
- * whose serifs are far too sturdy for a 60px headline.
- */
-.font-display {
-  font-variation-settings: 'opsz' 144;
-}
-
 /* Visible focus ring for keyboard users (a11y baseline). */
 :focus-visible {
   outline: 2px solid theme('colors.brand.600');

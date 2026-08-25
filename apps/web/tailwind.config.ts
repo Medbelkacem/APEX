@@ -53,10 +53,12 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
         /**
-         * Headline face. The brand font is Muslone, which is licensed and not
-         * web-distributable; Fraunces is the closest free stand-in and holds
-         * the same bold, condensed, high-contrast wedge-serif voice. Dropping
-         * Muslone into `--font-display` swaps it everywhere with no other edit.
+         * Headline face — Muslone, per the guidelines. Georgia is not a
+         * stand-in for it but a completion of it: the copy of Muslone the brand
+         * book embeds has no punctuation, so the full stop that ends most
+         * headlines is a Georgia glyph sitting between Muslone letters. It is
+         * the closest common serif in weight and dot size; swapping in a
+         * complete Muslone would retire it.
          */
         display: ['var(--font-display)', 'Georgia', 'serif'],
       },
