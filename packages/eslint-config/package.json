@@ -2,7 +2,7 @@
   "name": "@dental/eslint-config",
   "version": "1.0.0",
   "private": true,
-  "description": "Shared ESLint config for the Dental Lab monorepo (TypeScript).",
+  "description": "Shared ESLint config for the Apex Digital Lab monorepo (TypeScript).",
   "main": "index.js",
   "scripts": {
     "lint": "echo \"config package — nothing to lint\" && exit 0",

@@ -2,7 +2,7 @@
   "name": "@dental/ui-kit",
   "version": "1.0.0",
   "private": true,
-  "description": "Reusable UI components shared across Dental Lab frontends (reserved for cross-app reuse).",
+  "description": "Reusable UI components shared across Apex Digital Lab frontends (reserved for cross-app reuse).",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {

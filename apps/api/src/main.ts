@@ -47,7 +47,7 @@ async function bootstrap(): Promise<void> {
   // OpenAPI docs (Zod DTOs made Swagger-aware via patchNestjsSwagger).
   patchNestJsSwagger();
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Dental Laboratory Management Platform API')
+    .setTitle('Apex Digital Lab API')
     .setDescription('REST API for the dentist portal, admin dashboard, and public site.')
     .setVersion('1.0')
     .addCookieAuth('access_token')

@@ -2,7 +2,7 @@
   "name": "@dental/web",
   "version": "1.0.0",
   "private": true,
-  "description": "Dental Lab platform — Next.js frontend (marketing site, dentist portal, admin dashboard).",
+  "description": "Apex Digital Lab platform — Next.js frontend (marketing site, dentist portal, admin dashboard).",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",

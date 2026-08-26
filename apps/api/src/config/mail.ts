@@ -12,8 +12,8 @@ export const mailConfig = registerAs('mail', () => ({
     ),
   },
   sendgridApiKey: process.env.SENDGRID_API_KEY ?? '',
-  fromName: process.env.MAIL_FROM_NAME ?? 'Dental Lab',
-  fromAddress: process.env.MAIL_FROM_ADDRESS ?? 'no-reply@dental-lab.test',
+  fromName: process.env.MAIL_FROM_NAME ?? 'Apex Digital Lab',
+  fromAddress: process.env.MAIL_FROM_ADDRESS ?? 'no-reply@apex.example',
 }));
 
 export type MailConfig = ReturnType<typeof mailConfig>;

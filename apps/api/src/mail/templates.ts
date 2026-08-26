@@ -10,7 +10,7 @@ export interface RenderedEmail {
   text: string;
 }
 
-const BRAND = 'Dental Lab';
+const BRAND = 'Apex Digital Lab';
 
 /**
  * Absolute URL for the logo — email clients cannot resolve relative paths, and
@@ -22,11 +22,11 @@ const LOGO_URL = `${process.env.WEB_URL ?? 'http://localhost:3000'}/logo-white.p
 function layout(title: string, bodyHtml: string): string {
   return `<!doctype html>
 <html>
-  <body style="margin:0;background:#f1f5f9;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+  <body style="margin:0;background:#fff7e6;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111111;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 0;">
       <tr><td align="center">
-        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
-          <tr><td style="background:#0f766e;padding:20px 28px;color:#ffffff;font-size:18px;font-weight:700;">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e8edf5;">
+          <tr><td style="background:#001e47;padding:20px 28px;color:#ffffff;font-size:18px;font-weight:700;">
             <img src="${LOGO_URL}" width="28" height="28" alt="" style="vertical-align:middle;margin-right:10px;" />
             <span style="vertical-align:middle;">${BRAND}</span>
           </td></tr>
@@ -34,7 +34,7 @@ function layout(title: string, bodyHtml: string): string {
             <h1 style="margin:0 0 16px;font-size:20px;">${title}</h1>
             ${bodyHtml}
           </td></tr>
-          <tr><td style="padding:18px 28px;background:#f8fafc;color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;">
+          <tr><td style="padding:18px 28px;background:#fff7e6;color:#2b4f80;font-size:12px;border-top:1px solid #e8edf5;">
             This is an automated message from ${BRAND}. Please do not reply.
           </td></tr>
         </table>
@@ -55,7 +55,7 @@ function escapeHtml(input: string): string {
 }
 
 function button(label: string, url: string): string {
-  return `<a href="${url}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">${label}</a>`;
+  return `<a href="${url}" style="display:inline-block;background:#0049cc;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">${label}</a>`;
 }
 
 export const emailTemplates = {
@@ -66,7 +66,7 @@ export const emailTemplates = {
         `Welcome, ${escapeHtml(params.firstName)}`,
         `<p>An account has been created for you on the ${BRAND} portal. Set your password to get started:</p>
          <p style="margin:24px 0;">${button('Set your password', params.setupUrl)}</p>
-         <p style="color:#64748b;font-size:13px;">This link expires in 1 hour. If you did not expect this, you can ignore this email.</p>`,
+         <p style="color:#2b4f80;font-size:13px;">This link expires in 1 hour. If you did not expect this, you can ignore this email.</p>`,
       ),
       text: `Welcome to ${BRAND}, ${params.firstName}. Set your password: ${params.setupUrl} (expires in 1 hour).`,
     };
@@ -80,7 +80,7 @@ export const emailTemplates = {
         `<p>Thanks for registering with ${BRAND}. Confirm this address to complete your application:</p>
          <p style="margin:24px 0;">${button('Confirm email address', params.verifyUrl)}</p>
          <p>Once confirmed, our team reviews the application before your account is opened. We will email you when it is ready.</p>
-         <p style="color:#64748b;font-size:13px;">This link expires in 24 hours. If you did not register, you can ignore this email.</p>`,
+         <p style="color:#2b4f80;font-size:13px;">This link expires in 24 hours. If you did not register, you can ignore this email.</p>`,
       ),
       text:
         `Thanks for registering with ${BRAND}, ${params.firstName}. ` +
@@ -169,7 +169,7 @@ export const emailTemplates = {
         'Password reset requested',
         `<p>Hi ${escapeHtml(params.firstName)}, we received a request to reset your password.</p>
          <p style="margin:24px 0;">${button('Reset password', params.resetUrl)}</p>
-         <p style="color:#64748b;font-size:13px;">This link expires in 1 hour. If you didn't request this, no action is needed.</p>`,
+         <p style="color:#2b4f80;font-size:13px;">This link expires in 1 hour. If you didn't request this, no action is needed.</p>`,
       ),
       text: `Reset your ${BRAND} password: ${params.resetUrl} (expires in 1 hour).`,
     };
@@ -265,7 +265,7 @@ export const emailTemplates = {
       html: layout(
         'New contact message',
         `<p><strong>${escapeHtml(params.name)}</strong> (${escapeHtml(params.email)}) wrote:</p>
-         <blockquote style="border-left:3px solid #0f766e;padding-left:12px;color:#334155;">${escapeHtml(
+         <blockquote style="border-left:3px solid #0049cc;padding-left:12px;color:#123163;">${escapeHtml(
            params.message,
          ).replace(/\n/g, '<br />')}</blockquote>`,
       ),

@@ -7,7 +7,7 @@ import { argon2OptionsFrom } from '../../common/security/password.service';
 
 /** Create the first super-admin from env, if it does not already exist. */
 export async function seedAdmin(repo: Model<User>): Promise<void> {
-  const email = (process.env.SEED_ADMIN_EMAIL ?? 'admin@dental-lab.test').toLowerCase();
+  const email = (process.env.SEED_ADMIN_EMAIL ?? 'admin@apex.example').toLowerCase();
 
   const existing = await repo.findOne({ email }).exec();
   if (existing) {
