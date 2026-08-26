@@ -14,10 +14,12 @@ const poppins = Poppins({
 
 /**
  * Muslone, the brand's display face, recovered from the copy the brand book
- * embeds. That copy is a subset: it carries every letter and digit but none of
- * the punctuation, so `muslone.woff2` maps only the glyphs it really has and
- * the marks it lacks — the full stop, hyphen, comma and apostrophe — fall
- * through to Georgia. See `fontFamily.display` in the Tailwind config.
+ * embeds. That copy is a subset: it carries every letter and digit but no
+ * punctuation at all, so `muslone.woff2` maps only the glyphs it really has —
+ * plus the full stop and hyphen, the two marks the landing-page headlines set,
+ * measured off that design's own rendering and drawn back into the face. The
+ * comma and apostrophe it still lacks fall through to Georgia. See
+ * `fontFamily.display` in the Tailwind config.
  *
  * Declared at 700 because that single cut is the heavy one the design sets its
  * headlines in, and `Display` asks for `font-bold`: were it declared at 400 the

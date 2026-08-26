@@ -1,7 +1,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Container } from '@/components/ui/card';
-import { CtaBand, Display, FeaturePill, SectionRule, ctaClasses } from '@/components/marketing';
+import {
+  Display,
+  FeaturePill,
+  Icon,
+  IconTile,
+  SectionRule,
+  ctaClasses,
+} from '@/components/marketing';
 import { loadPublicCaseTypes } from '@/lib/api/public-catalog';
 
 /** Must be a literal — Next.js analyses segment config statically. */
@@ -167,37 +174,39 @@ export default async function HomePage() {
        * more than the copy needs — a minimum plus vertical centring holds that
        * proportion without padding that has to be re-tuned per breakpoint.
        */}
-      <section className="relative isolate flex min-h-[36rem] items-center overflow-hidden bg-navy-800 lg:min-h-[50rem]">
+      <section className="relative isolate flex min-h-[36rem] items-center overflow-hidden bg-navy-800 lg:min-h-[56.5rem]">
         <Image
           src="/images/lab-workstation.jpg"
           alt=""
           fill
           priority
           sizes="100vw"
-          className="object-cover"
+          className="object-cover grayscale"
         />
         {/*
-         * The design turns the photograph into a Super Blue duotone. `color`
-         * takes the hue from the overlay and the light from the picture, which
-         * is what keeps the workstation readable; multiplying instead would
-         * crush it to a navy silhouette. The gradient on top is only there to
+         * The design turns the photograph into a Super Blue duotone with no red
+         * left in it at all — sampling the hero across the design gives a mean
+         * of rgb(15, 47, 93). Multiplying Super Blue over the picture with its
+         * colour already stripped is exactly that: every channel is scaled by
+         * the brand ink, so red lands on zero and the light in the photograph
+         * is the only thing that survives. The gradient on top is there to
          * darken the two edges the headline and the header sit against.
          */}
-        <div aria-hidden="true" className="absolute inset-0 bg-brand-600 mix-blend-color" />
-        <div aria-hidden="true" className="absolute inset-0 bg-brand-700/55" />
+        <div aria-hidden="true" className="absolute inset-0 bg-brand-600 mix-blend-multiply" />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-navy-900/60 via-navy-900/30 to-navy-900/60"
+          className="absolute inset-0 bg-gradient-to-b from-navy-900/45 via-transparent to-navy-900/45"
         />
 
         <Container className="relative w-full pb-16 pt-32 text-center sm:pb-20 sm:pt-36">
           <Display
             as="h1"
-            className="mx-auto max-w-[52rem] text-4xl text-white sm:text-5xl lg:text-[4rem]"
+            className="mx-auto max-w-[64rem] text-4xl text-white sm:text-5xl lg:text-[4.5rem]"
           >
             Stop Wasting Chair Time On Unpredictable Lab Work.
           </Display>
-          <p className="mx-auto mt-7 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
+          {/* Wide enough to break in two, as the design sets it. */}
+          <p className="mx-auto mt-6 max-w-[62rem] text-base leading-relaxed text-white/85 sm:text-lg">
             Apex is a digital lab partner for US general dentists — built around operational
             precision, not a wide catalog. Four high-demand restorations. Consistent fit.
             Predictable turnaround.
@@ -214,16 +223,22 @@ export default async function HomePage() {
       </section>
 
       {/* ── Lab Reality ──────────────────────────────────────────────────── */}
-      <section className="py-16 sm:py-24">
+      <section className="py-16 sm:py-24 lg:py-32">
         <Container>
-          <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-16">
+          {/* Centred on the page, not on the heading — see `SectionRule`. */}
+          <SectionRule className="mx-auto" />
+          {/*
+           * Not two equal columns. Against the 1280px measure the design runs
+           * the pill list at 523 and the copy beside it at 629, with 128
+           * between them — the ratios below, which hold as the measure narrows.
+           */}
+          <div className="mt-12 grid items-start gap-10 lg:mt-14 lg:grid-cols-[523fr_629fr] lg:gap-32">
             {/* Copy first on a phone; the design keeps it right of the list on desktop. */}
             <div className="lg:order-2">
-              <SectionRule />
-              <Display className="mt-6 text-3xl text-navy-700 sm:text-4xl lg:text-[3.25rem]">
+              <Display className="text-3xl text-navy-700 sm:text-4xl lg:text-[4.5rem]">
                 Lab Reality
               </Display>
-              <p className="mt-5 max-w-xl leading-relaxed text-navy-600/80">
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-navy-600/80">
                 Unpredictable lab performance creates operational stress inside busy dental
                 practices. These are the issues most dentists face when working with traditional
                 labs.
@@ -239,7 +254,7 @@ export default async function HomePage() {
               </div>
             </div>
 
-            <ul className="space-y-5 lg:order-1 lg:pt-4">
+            <ul className="space-y-[1.875rem] lg:order-1">
               {PROBLEMS.map((problem) => (
                 <li key={problem.title}>
                   <FeaturePill {...problem} />
@@ -251,15 +266,16 @@ export default async function HomePage() {
       </section>
 
       {/* ── Our Core Solutions ───────────────────────────────────────────── */}
-      <section className="py-16 sm:py-24">
+      <section className="py-16 sm:py-24 lg:py-32">
         <Container>
-          <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-16">
+          <SectionRule className="mx-auto" />
+          {/* Mirrored, and the copy is the wider column here: 655 / 103 / 523. */}
+          <div className="mt-12 grid items-start gap-10 lg:mt-14 lg:grid-cols-[655fr_523fr] lg:gap-[6.4375rem]">
             <div>
-              <SectionRule />
-              <Display className="mt-6 text-3xl text-navy-700 sm:text-4xl lg:text-[3.25rem]">
+              <Display className="text-3xl text-navy-700 sm:text-4xl lg:text-[4.5rem]">
                 Our Core Solutions
               </Display>
-              <p className="mt-5 max-w-xl leading-relaxed text-navy-600/80">
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-navy-600/80">
                 Apex operates as a specialized digital lab partner specifically for general dentists
                 within the United States. Unlike traditional labs that offer a vast, unmanageable
                 catalog, Apex focuses on operational precision and a highly disciplined, focused-SKU
@@ -276,7 +292,7 @@ export default async function HomePage() {
               </div>
             </div>
 
-            <ul className="space-y-5 lg:pt-4">
+            <ul className="space-y-[1.875rem]">
               {SOLUTIONS.map((solution) => (
                 <li key={solution.title}>
                   <FeaturePill {...solution} />
@@ -288,7 +304,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── Four Perfected Core Solutions ────────────────────────────────── */}
-      <section className="relative isolate overflow-hidden bg-brand-600 py-16 text-white sm:py-24">
+      <section className="relative isolate overflow-hidden bg-brand-600 py-16 text-white sm:py-24 lg:py-32">
         <Image
           src="/images/appliances.jpg"
           alt=""
@@ -300,10 +316,11 @@ export default async function HomePage() {
 
         <Container className="relative">
           <div className="text-center">
-            <Display className="mx-auto max-w-3xl text-3xl sm:text-4xl lg:text-[3.25rem]">
+            <SectionRule className="mx-auto bg-white" />
+            <Display className="mx-auto mt-10 max-w-[68rem] text-3xl sm:text-4xl lg:text-[4.5rem]">
               {solutionsHeading(skus.length)}
             </Display>
-            <p className="mx-auto mt-6 max-w-2xl leading-relaxed text-white/85">
+            <p className="mx-auto mt-5 max-w-3xl text-lg leading-relaxed text-white/85">
               Instead of offering dozens of services, Apex refines and optimizes a limited number of
               high-demand restorations. This reduces error rates and improves consistency.
             </p>
@@ -314,15 +331,16 @@ export default async function HomePage() {
            * than a grid so that a catalog with an odd number of case types
            * centres its last card instead of leaving a hole beside it.
            */}
-          <ul className="mt-12 flex flex-wrap justify-center gap-5 sm:mt-16">
+          {/* The design sets this grid on a narrower measure than the sections above. */}
+          <ul className="mx-auto mt-12 flex max-w-[66.5rem] flex-wrap justify-center gap-[1.875rem] sm:mt-16">
             {skus.map((sku) => (
               <li
                 key={sku.name}
-                className="flex w-full flex-col items-center justify-center rounded-[1.75rem] border border-white/25 bg-white/10 p-8 text-center backdrop-blur-sm sm:w-[calc(50%-0.625rem)] sm:p-10"
+                className="flex min-h-[11rem] w-full flex-col items-center justify-center rounded-[1.75rem] border border-white/25 bg-white/10 p-8 text-center backdrop-blur-sm sm:w-[calc(50%-0.9375rem)] sm:p-10"
               >
-                <h3 className="text-xl font-bold sm:text-2xl">{sku.name}</h3>
+                <h3 className="text-xl font-bold sm:text-[1.75rem]">{sku.name}</h3>
                 {sku.description && (
-                  <p className="mt-2 max-w-xs text-sm leading-relaxed text-white/85">
+                  <p className="mt-2 max-w-sm text-[0.9375rem] leading-relaxed text-white/85 sm:text-[1.0625rem]">
                     {sku.description}
                   </p>
                 )}
@@ -339,41 +357,32 @@ export default async function HomePage() {
       </section>
 
       {/* ── Start with a small trial ─────────────────────────────────────── */}
-      <section className="py-16 sm:py-24">
+      <section className="py-16 sm:py-24 lg:py-32">
         <Container className="text-center">
           <SectionRule className="mx-auto" />
-          <Display className="mx-auto mt-8 max-w-4xl text-3xl text-navy-700 sm:text-4xl lg:text-[3.25rem]">
+          <Display className="mx-auto mt-10 max-w-5xl text-3xl text-navy-700 sm:text-4xl lg:text-[4.5rem]">
             {/* Broken by hand: left to wrap, the line splits "Long-Term" at the hyphen. */}
             <span className="block">Start with a Small Trial.</span>
             <span className="block">No Long-Term Commitment.</span>
           </Display>
-          <p className="mx-auto mt-6 max-w-xl leading-relaxed text-navy-600/80">
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-navy-600/80">
             We encourage new partners to begin with a small number of cases to experience our
             workflow firsthand.
           </p>
 
-          <ul className="mt-12 grid gap-5 sm:mt-14 md:grid-cols-3">
+          <ul className="mx-auto mt-12 grid max-w-[75rem] gap-[1.875rem] sm:mt-14 md:grid-cols-3">
             {TRIAL.map((item) => (
               <li
                 key={item.title}
-                className="flex flex-col items-center rounded-[1.75rem] bg-brand-600 p-8 text-white shadow-pill"
+                className="flex flex-col items-center rounded-[1.75rem] bg-brand-600 p-8 text-white shadow-pill sm:p-10"
               >
-                <span className="grid h-14 w-14 place-items-center rounded-full bg-navy-700">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.6}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-6 w-6"
-                    aria-hidden="true"
-                  >
-                    {item.icon}
-                  </svg>
-                </span>
-                <h3 className="mt-5 text-lg font-bold">{item.title}</h3>
-                <p className="mt-1.5 text-sm text-white/85">{item.body}</p>
+                <IconTile>
+                  <Icon>{item.icon}</Icon>
+                </IconTile>
+                <h3 className="mt-6 text-xl font-bold sm:text-[1.75rem]">{item.title}</h3>
+                <p className="mt-1.5 text-[0.9375rem] text-white/85 sm:text-[1.0625rem]">
+                  {item.body}
+                </p>
               </li>
             ))}
           </ul>
@@ -388,18 +397,6 @@ export default async function HomePage() {
           </div>
         </Container>
       </section>
-
-      <CtaBand
-        title="Ready to send your first case?"
-        body="Register your practice in a few minutes, or get in touch and we'll walk you through portal access."
-      >
-        <Link href="/register" className={ctaClasses('navy')}>
-          Register your practice
-        </Link>
-        <Link href="/how-to-send-a-case" className={ctaClasses('blue')}>
-          How it works
-        </Link>
-      </CtaBand>
     </>
   );
 }

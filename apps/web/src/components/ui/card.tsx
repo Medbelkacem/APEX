@@ -28,6 +28,16 @@ export function Card({ className = '', ...props }: HTMLAttributes<HTMLDivElement
   );
 }
 
+/**
+ * The page gutter every marketing surface shares. 84rem against the `lg:px-8`
+ * gutters leaves a 1280px content column at the 1440px width the landing-page
+ * design is drawn at, which is the measure its two-column sections are set to.
+ */
 export function Container({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8', className)} {...props} />;
+  return (
+    <div
+      className={cn('mx-auto w-full max-w-[84rem] px-4 sm:px-6 lg:px-8', className)}
+      {...props}
+    />
+  );
 }

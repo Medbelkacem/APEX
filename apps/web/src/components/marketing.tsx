@@ -19,22 +19,46 @@ const CTA_TONES: Record<CtaTone, string> = {
   pearl: 'bg-pearl text-navy-700 hover:bg-pearl-200',
   navy: 'bg-navy-700 text-white hover:bg-navy-800',
   blue: 'bg-brand-600 text-white hover:bg-brand-700',
-  onDark: 'border border-white/45 text-white hover:bg-white/10',
+  // Not a plain outline: the design washes the pill with about 15% white.
+  onDark: 'border border-white/45 bg-white/15 text-white hover:bg-white/25',
 };
 
-export function ctaClasses(tone: CtaTone = 'blue'): string {
+/**
+ * `lg` is the button the design draws in its CTA rows — 60px tall with an 18px
+ * label at desktop. `sm` is the compact one the header carries, which has to
+ * sit inside a 100px bar beside the nav.
+ *
+ * The size is a parameter rather than something a caller layers on afterwards
+ * because `cn` is a plain join: Tailwind resolves same-specificity utilities by
+ * stylesheet order, so an `h-12` appended by a caller would lose to the `h-14`
+ * already in the string and quietly do nothing.
+ */
+type CtaSize = 'lg' | 'sm';
+
+const CTA_SIZES: Record<CtaSize, string> = {
+  lg: 'h-14 px-9 text-[0.9375rem] sm:h-[3.75rem] sm:px-12 sm:text-lg',
+  sm: 'h-12 px-7 text-sm',
+};
+
+export function ctaClasses(tone: CtaTone = 'blue', size: CtaSize = 'lg'): string {
   return cn(
-    'inline-flex h-12 items-center justify-center rounded-full px-8 text-sm font-semibold uppercase tracking-wide transition-colors',
+    'inline-flex items-center justify-center rounded-full font-semibold uppercase tracking-wide transition-colors',
     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+    CTA_SIZES[size],
     CTA_TONES[tone],
   );
 }
 
 /**
- * 24px line icons drawn on a shared canvas so every glyph keeps the same
+ * 28px line icons drawn on a shared canvas so every glyph keeps the same
  * stroke weight and optical size. Callers supply only the paths.
+ *
+ * The default size is dropped when the caller sets one of its own. Tailwind
+ * resolves utilities of equal specificity by stylesheet order rather than by
+ * the order they appear in the class attribute, so a caller asking for `h-6`
+ * would otherwise lose to the `h-7` below and silently get the default.
  */
-export function Icon({ children, className }: { children: ReactNode; className?: string }) {
+export function Icon({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -43,7 +67,11 @@ export function Icon({ children, className }: { children: ReactNode; className?:
       strokeWidth={1.6}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn('h-6 w-6', className)}
+      className={cn(
+        /(^|\s)h-/.test(className) ? null : 'h-7',
+        /(^|\s)w-/.test(className) ? null : 'w-7',
+        className,
+      )}
       aria-hidden="true"
     >
       {children}
@@ -56,7 +84,7 @@ export function IconTile({ children, className }: { children: ReactNode; classNa
   return (
     <span
       className={cn(
-        'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-navy-700 text-white',
+        'flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-navy-700 text-white sm:h-[4.5rem] sm:w-[4.5rem]',
         className,
       )}
     >
@@ -65,20 +93,32 @@ export function IconTile({ children, className }: { children: ReactNode; classNa
   );
 }
 
-/** The short Super Blue rule that opens every section in the design. */
+/**
+ * The short Super Blue rule that opens every section in the design — 204x6.
+ * The landing page centres it on the page rather than on the heading beneath
+ * it, which is where the design puts it even where that heading is ranged
+ * left, so the centring is the caller's to ask for.
+ */
 export function SectionRule({ className }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={cn('block h-1 w-24 rounded-full bg-brand-600', className)}
+      className={cn('block h-1.5 w-[12.75rem] max-w-full rounded-full bg-brand-600', className)}
     />
   );
 }
 
 /**
- * The display-serif headline. Rendering it through one component is what keeps
- * the optical-size pin and the tight leading — both of which a bare `<h2>` with
- * `font-display` would miss — attached to every headline on the site.
+ * The display headline. The design sets Muslone at its own defaults: no
+ * tracking, and the leading the face's own metrics ask for — its ascent and
+ * descent sum to 1.331em, and the design's two-line headlines are set exactly
+ * that far apart.
+ *
+ * That leading is marked important because it has to survive the size classes
+ * callers pass. Tailwind's `text-*` scale carries a line-height of its own and
+ * emits the responsive variants of it after every unprefixed utility, so a
+ * plain `leading-*` here would hold at the base width and then lose to
+ * `sm:text-5xl` the moment the headline grew.
  */
 export function Display({
   as: Tag = 'h2',
@@ -89,11 +129,7 @@ export function Display({
   className?: string;
   children: ReactNode;
 }) {
-  return (
-    <Tag className={cn('font-display font-bold leading-[1.08] tracking-tight', className)}>
-      {children}
-    </Tag>
-  );
+  return <Tag className={cn('font-display font-bold !leading-[1.331]', className)}>{children}</Tag>;
 }
 
 /**
@@ -115,7 +151,7 @@ export function FeaturePill({
   return (
     <div
       className={cn(
-        'flex items-start gap-4 rounded-[1.75rem] bg-brand-600 p-5 text-white shadow-pill sm:gap-5 sm:p-6',
+        'flex items-center gap-4 rounded-[1.75rem] bg-brand-600 p-5 text-white shadow-pill sm:gap-6 sm:p-7',
         className,
       )}
     >
@@ -123,8 +159,10 @@ export function FeaturePill({
         <Icon>{icon}</Icon>
       </IconTile>
       <div className="min-w-0">
-        <h3 className="text-lg font-bold leading-snug">{title}</h3>
-        <p className="mt-1 text-sm leading-relaxed text-white/85">{body}</p>
+        <h3 className="text-xl font-bold leading-snug sm:text-[1.75rem]">{title}</h3>
+        <p className="mt-1 text-[0.9375rem] leading-relaxed text-white/85 sm:text-[1.0625rem]">
+          {body}
+        </p>
       </div>
     </div>
   );

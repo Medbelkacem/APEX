@@ -53,12 +53,13 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
         /**
-         * Headline face — Muslone, per the guidelines. Georgia is not a
-         * stand-in for it but a completion of it: the copy of Muslone the brand
-         * book embeds has no punctuation, so the full stop that ends most
-         * headlines is a Georgia glyph sitting between Muslone letters. It is
-         * the closest common serif in weight and dot size; swapping in a
-         * complete Muslone would retire it.
+         * Headline face — Muslone, per the guidelines. The copy of Muslone the
+         * brand book embeds carries no punctuation; the full stop and hyphen
+         * the design's headlines need were measured off `Apex landing page.pdf`
+         * and drawn back into the subset, so "No Long-Term Commitment." reads
+         * as one face throughout. Georgia is not a stand-in for Muslone but a
+         * completion of it, still supplying the comma and apostrophe, and a
+         * complete Muslone dropped over the woff2 retires it.
          */
         display: ['var(--font-display)', 'Georgia', 'serif'],
       },

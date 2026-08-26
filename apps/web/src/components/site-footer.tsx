@@ -53,63 +53,70 @@ export function SiteFooter() {
 
   return (
     <footer className="bg-navy-700 text-white">
+      {/*
+       * The design keeps the footer on a narrower measure than the sections
+       * above it — 1064px against their 1280 — so the mark and the socials sit
+       * inside the column the copy above them ends at.
+       */}
       <Container className="py-14 sm:py-16">
-        {/*
-         * Three columns rather than `justify-between`, so the nav stays in the
-         * middle of the footer whether or not the laboratory has configured any
-         * social links — with two children, spacing them apart would throw the
-         * links against the right edge.
-         */}
-        <div className="flex flex-col items-center gap-10 lg:grid lg:grid-cols-[auto_1fr_auto] lg:gap-8">
-          <Link href="/" aria-label="Apex — home" className="text-white lg:justify-self-start">
-            <LogoMark className="h-20 w-20" />
-          </Link>
+        <div className="mx-auto w-full max-w-[66.5rem]">
+          {/*
+           * Three columns rather than `justify-between`, so the nav stays in the
+           * middle of the footer whether or not the laboratory has configured any
+           * social links — with two children, spacing them apart would throw the
+           * links against the right edge.
+           */}
+          <div className="flex flex-col items-center gap-10 lg:grid lg:grid-cols-[auto_1fr_auto] lg:gap-8">
+            <Link href="/" aria-label="Apex — home" className="text-white lg:justify-self-start">
+              <LogoMark className="h-24 w-24 lg:h-[9.5rem] lg:w-[9.5rem]" />
+            </Link>
 
-          <nav className="flex flex-wrap justify-center gap-x-8 gap-y-3" aria-label="Footer">
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-sm text-white/80 transition-colors hover:text-white"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          <ul className="flex items-center gap-3 lg:justify-self-end">
-            {socials.map((social) => (
-              <li key={social.label}>
-                <a
-                  href={social.href}
-                  aria-label={social.label}
-                  className="grid h-12 w-12 place-items-center rounded-full bg-white text-navy-700 transition-colors hover:bg-pearl"
+            <nav className="flex flex-wrap justify-center gap-x-9 gap-y-3" aria-label="Footer">
+              {NAV.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-lg text-white/80 transition-colors hover:text-white"
                 >
-                  <Icon className="h-5 w-5">{social.icon}</Icon>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
 
-        <hr className="mt-12 border-white/15" />
+            <ul className="flex items-center gap-4 lg:justify-self-end">
+              {socials.map((social) => (
+                <li key={social.label}>
+                  <a
+                    href={social.href}
+                    aria-label={social.label}
+                    className="grid h-16 w-16 place-items-center rounded-full bg-white text-navy-700 transition-colors hover:bg-pearl lg:h-[4.75rem] lg:w-[4.75rem]"
+                  >
+                    <Icon className="h-6 w-6 lg:h-7 lg:w-7">{social.icon}</Icon>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-        <div className="mt-8 space-y-2 text-center text-sm">
-          <p className="font-medium">© {year} Apex Digital Lab. All rights reserved.</p>
-          <p className="text-white/60">
-            Focused-SKU digital lab partner exclusively for independent US general dentists.
-          </p>
-          <p className="flex flex-wrap justify-center gap-x-5 gap-y-1 pt-2 text-white/60">
-            <Link href="/privacy" className="hover:text-white">
-              Privacy
-            </Link>
-            <Link href="/terms" className="hover:text-white">
-              Terms
-            </Link>
-            <Link href="/login" className="hover:text-white">
-              Portal login
-            </Link>
-          </p>
+          <hr className="mt-12 border-white/15" />
+
+          <div className="mt-8 space-y-2 text-center">
+            <p className="font-medium">© {year} Apex Digital Lab. All rights reserved.</p>
+            <p className="text-white/60">
+              Focused-SKU digital lab partner exclusively for independent US general dentists.
+            </p>
+            <p className="flex flex-wrap justify-center gap-x-5 gap-y-1 pt-2 text-sm text-white/60">
+              <Link href="/privacy" className="hover:text-white">
+                Privacy
+              </Link>
+              <Link href="/terms" className="hover:text-white">
+                Terms
+              </Link>
+              <Link href="/login" className="hover:text-white">
+                Portal login
+              </Link>
+            </p>
+          </div>
         </div>
       </Container>
     </footer>

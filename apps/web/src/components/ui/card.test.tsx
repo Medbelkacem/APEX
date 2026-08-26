@@ -98,7 +98,7 @@ describe('Container', () => {
   it('applies the shared page gutters', () => {
     render(<Container data-testid="container">content</Container>);
 
-    expect(screen.getByTestId('container')).toHaveClass('mx-auto', 'w-full', 'max-w-6xl');
+    expect(screen.getByTestId('container')).toHaveClass('mx-auto', 'w-full', 'max-w-[84rem]');
   });
 
   it('appends caller classes', () => {
@@ -108,6 +108,6 @@ describe('Container', () => {
       </Container>,
     );
 
-    expect(screen.getByTestId('container')).toHaveClass('py-12', 'max-w-6xl');
+    expect(screen.getByTestId('container')).toHaveClass('py-12', 'max-w-[84rem]');
   });
 });

@@ -51,31 +51,33 @@ export function SiteHeader() {
         <style>{`.site-header { background-color: #001e47; }`}</style>
       </noscript>
 
-      <Container className="flex h-20 items-center justify-between gap-6">
-        <Link href="/" aria-label="Apex — home" className="text-white">
+      {/*
+       * Three tracks rather than `justify-between`: the design centres the nav
+       * on the page, and spacing three items apart would instead centre it
+       * between the mark and the portal actions, which are not the same width.
+       */}
+      <Container className="flex h-20 items-center justify-between gap-6 lg:grid lg:h-[6.25rem] lg:grid-cols-[1fr_auto_1fr]">
+        <Link href="/" aria-label="Apex — home" className="text-white lg:justify-self-start">
           <Logo size="md" />
         </Link>
 
-        <nav className="hidden items-center gap-8 lg:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-9 lg:flex" aria-label="Primary">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="text-sm font-medium text-white/80 transition-colors hover:text-white"
+              className="text-lg text-white/80 transition-colors hover:text-white"
             >
               {item.label}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
-          <Link
-            href="/login"
-            className="text-sm font-medium text-white/80 transition-colors hover:text-white"
-          >
+        <div className="hidden items-center gap-4 lg:flex lg:justify-self-end">
+          <Link href="/login" className="text-lg text-white/80 transition-colors hover:text-white">
             Log in
           </Link>
-          <Link href="/register" className={cn(ctaClasses('pearl'), 'h-11 px-6')}>
+          <Link href="/register" className={ctaClasses('pearl', 'sm')}>
             Submit a case
           </Link>
         </div>
@@ -91,7 +93,9 @@ export function SiteHeader() {
         </button>
       </Container>
 
-      <div className={cn('border-t border-white/10 bg-navy-700 lg:hidden', open ? 'block' : 'hidden')}>
+      <div
+        className={cn('border-t border-white/10 bg-navy-700 lg:hidden', open ? 'block' : 'hidden')}
+      >
         <Container className="flex flex-col gap-1 py-4">
           {NAV.map((item) => (
             <Link
