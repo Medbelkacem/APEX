@@ -323,7 +323,7 @@ export default function AdminDentistsPage() {
                     <Td>
                       <Link
                         href={`/admin/dentists/${row.id}`}
-                        className="font-medium text-brand-700 hover:underline"
+                        className="font-medium text-blue-700 hover:underline"
                       >
                         {row.user.firstName} {row.user.lastName}
                       </Link>

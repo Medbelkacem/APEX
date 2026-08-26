@@ -323,7 +323,7 @@ export default function AdminPricingPage() {
             <label className="flex items-center gap-2 pb-2.5 text-sm text-slate-700">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
+                className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-500"
                 checked={filters.includeInactive}
                 onChange={(e) => patch({ includeInactive: e.target.checked })}
               />

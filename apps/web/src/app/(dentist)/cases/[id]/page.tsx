@@ -56,7 +56,7 @@ export default function CaseDetailPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/cases" className="text-sm text-slate-500 hover:text-brand-700">
+        <Link href="/cases" className="text-sm text-slate-500 hover:text-blue-700">
           ← Back to cases
         </Link>
       </div>
@@ -158,7 +158,7 @@ export default function CaseDetailPage() {
                             <div className="flex shrink-0 items-center gap-1">
                               <a
                                 href={casesApi.fileUrl(id, file.id)}
-                                className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+                                className="rounded-lg px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50"
                               >
                                 Download
                               </a>

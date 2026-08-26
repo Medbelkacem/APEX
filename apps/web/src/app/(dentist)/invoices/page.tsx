@@ -121,7 +121,7 @@ export default function DentistInvoicesPage() {
                     <Td>
                       <Link
                         href={`/invoices/${invoice.id}`}
-                        className="font-medium text-brand-700 hover:underline"
+                        className="font-medium text-blue-700 hover:underline"
                       >
                         {invoice.number}
                       </Link>
@@ -151,7 +151,7 @@ export default function DentistInvoicesPage() {
                         {invoice.status === 'issued' && (
                           <Link
                             href={`/invoices/${invoice.id}`}
-                            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+                            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50"
                           >
                             Pay
                           </Link>

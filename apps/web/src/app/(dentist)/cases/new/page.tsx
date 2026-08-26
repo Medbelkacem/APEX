@@ -148,7 +148,7 @@ export default function NewCasePage() {
             The laboratory has been notified and will begin review shortly.
           </p>
           <p className="mt-6 text-sm text-slate-500">Your case reference</p>
-          <p className="text-2xl font-bold tracking-tight text-brand-700">{created.reference}</p>
+          <p className="text-2xl font-bold tracking-tight text-blue-700">{created.reference}</p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link href={`/cases/${created.id}`} className={buttonClasses('primary', 'md')}>
@@ -199,7 +199,7 @@ export default function NewCasePage() {
                 onClick={() => setStep(index)}
                 className={cn(
                   'w-full rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors',
-                  state === 'current' && 'border-brand-500 bg-brand-50 text-brand-800',
+                  state === 'current' && 'border-blue-500 bg-blue-50 text-blue-800',
                   state === 'done' && 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
                   state === 'todo' &&
                     'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400',
@@ -244,7 +244,7 @@ export default function NewCasePage() {
                   className={cn(
                     'cursor-pointer rounded-xl border p-4 transition-colors',
                     draft.caseTypeId === type.id
-                      ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500'
+                      ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
                       : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50',
                   )}
                 >

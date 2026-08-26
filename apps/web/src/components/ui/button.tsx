@@ -5,7 +5,7 @@ type Variant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type Size = 'sm' | 'md' | 'lg';
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-brand-600 text-white hover:bg-brand-700 disabled:bg-brand-200',
+  primary: 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-200',
   secondary: 'bg-navy-700 text-white hover:bg-navy-800',
   outline: 'border border-navy-100 text-navy-700 hover:bg-navy-50',
   ghost: 'text-navy-600 hover:bg-navy-50',

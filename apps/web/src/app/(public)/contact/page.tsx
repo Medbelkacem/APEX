@@ -100,7 +100,7 @@ export default function ContactPage() {
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className="flex items-start gap-5 rounded-[1.75rem] bg-brand-600 p-6 text-white shadow-pill transition-colors hover:bg-brand-500"
+                      className="flex items-start gap-5 rounded-[1.75rem] bg-blue-600 p-6 text-white shadow-pill transition-colors hover:bg-blue-500"
                     >
                       <IconTile>
                         <Icon>{item.icon}</Icon>

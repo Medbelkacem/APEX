@@ -121,7 +121,7 @@ export default function AdminDashboardPage() {
       <Card>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Recent activity</h2>
-          <Link href="/admin/cases" className="text-sm font-medium text-brand-700 hover:underline">
+          <Link href="/admin/cases" className="text-sm font-medium text-blue-700 hover:underline">
             All cases
           </Link>
         </div>
@@ -134,7 +134,7 @@ export default function AdminDashboardPage() {
               <div className="min-w-0">
                 <Link
                   href={`/admin/cases/${item.id}`}
-                  className="font-medium text-brand-700 hover:underline"
+                  className="font-medium text-blue-700 hover:underline"
                 >
                   {item.reference}
                 </Link>

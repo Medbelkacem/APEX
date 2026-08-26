@@ -103,7 +103,7 @@ export default function StatementsPage() {
                     <Td className="text-right">
                       <a
                         href={statementsApi.pdfUrl(statement.id)}
-                        className="inline-block rounded-lg px-2.5 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+                        className="inline-block rounded-lg px-2.5 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50"
                       >
                         <span className="sm:hidden">PDF</span>
                         <span className="hidden sm:inline">Download PDF</span>

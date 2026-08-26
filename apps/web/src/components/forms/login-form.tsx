@@ -72,7 +72,7 @@ export function LoginForm() {
       <div>
         <div className="flex items-center justify-between">
           <Label htmlFor="password">Password</Label>
-          <Link href="/forgot-password" className="text-sm text-brand-700 hover:underline">
+          <Link href="/forgot-password" className="text-sm text-blue-700 hover:underline">
             Forgot?
           </Link>
         </div>
@@ -91,7 +91,7 @@ export function LoginForm() {
 
       <p className="text-sm text-slate-500">
         New to the lab?{' '}
-        <Link href="/register" className="text-brand-700 hover:underline">
+        <Link href="/register" className="text-blue-700 hover:underline">
           Register your practice
         </Link>
       </p>

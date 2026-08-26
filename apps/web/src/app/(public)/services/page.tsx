@@ -31,7 +31,7 @@ export default async function ServicesPage() {
               {services.map((s) => (
                 <li
                   key={s.name}
-                  className="flex flex-col rounded-[1.75rem] bg-brand-600 p-7 text-white shadow-pill"
+                  className="flex flex-col rounded-[1.75rem] bg-blue-600 p-7 text-white shadow-pill"
                 >
                   <h2 className="text-xl font-bold">{s.name}</h2>
                   {s.description && (

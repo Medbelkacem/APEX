@@ -62,10 +62,10 @@ export function VerifyEmail() {
           register again with the same address.
         </p>
         <div className="flex gap-4 text-sm">
-          <Link href="/register" className="text-brand-700 hover:underline">
+          <Link href="/register" className="text-blue-700 hover:underline">
             Register again
           </Link>
-          <Link href="/login" className="text-brand-700 hover:underline">
+          <Link href="/login" className="text-blue-700 hover:underline">
             Back to sign in
           </Link>
         </div>
@@ -78,7 +78,7 @@ export function VerifyEmail() {
       <h1 className="text-2xl font-bold text-slate-900">Email confirmed</h1>
       <Alert tone={state.approved ? 'success' : 'info'}>{state.message}</Alert>
       {state.approved && (
-        <Link href="/login" className="block text-sm text-brand-700 hover:underline">
+        <Link href="/login" className="block text-sm text-blue-700 hover:underline">
           Sign in
         </Link>
       )}

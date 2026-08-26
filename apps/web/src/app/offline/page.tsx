@@ -22,7 +22,7 @@ export default function OfflinePage() {
       </p>
       <p className="mt-8 text-sm text-slate-500">
         Reconnect, then{' '}
-        <Link href="/dashboard" className="text-brand-700 hover:underline">
+        <Link href="/dashboard" className="text-blue-700 hover:underline">
           return to your dashboard
         </Link>
         .

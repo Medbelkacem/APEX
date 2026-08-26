@@ -31,7 +31,7 @@ export function ForgotPasswordForm() {
         <Alert tone="success">
           If an account exists for that address, we&apos;ve sent a password reset link.
         </Alert>
-        <Link href="/login" className="text-sm text-brand-700 hover:underline">
+        <Link href="/login" className="text-sm text-blue-700 hover:underline">
           ← Back to sign in
         </Link>
       </div>
@@ -57,7 +57,7 @@ export function ForgotPasswordForm() {
         {isSubmitting ? 'Sending…' : 'Send reset link'}
       </Button>
 
-      <Link href="/login" className="block text-center text-sm text-brand-700 hover:underline">
+      <Link href="/login" className="block text-center text-sm text-blue-700 hover:underline">
         Back to sign in
       </Link>
     </form>

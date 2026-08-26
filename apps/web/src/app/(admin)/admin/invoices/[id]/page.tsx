@@ -42,7 +42,7 @@ export default function AdminInvoiceDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/admin/invoices" className="text-sm text-slate-500 hover:text-brand-700">
+      <Link href="/admin/invoices" className="text-sm text-slate-500 hover:text-blue-700">
         ← Back to invoices
       </Link>
 
@@ -236,7 +236,7 @@ export default function AdminInvoiceDetailPage() {
                     <h2 className="text-lg font-semibold text-slate-900">Related case</h2>
                     <Link
                       href={`/admin/cases/${entity.case.id}`}
-                      className="mt-2 block font-medium text-brand-700 hover:underline"
+                      className="mt-2 block font-medium text-blue-700 hover:underline"
                     >
                       {entity.case.reference}
                     </Link>

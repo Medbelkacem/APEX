@@ -172,7 +172,7 @@ export default function AdminWorkflowPage() {
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
+              className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-500"
               checked={form.isTerminal}
               onChange={(e) => setForm((f) => ({ ...f, isTerminal: e.target.checked }))}
             />
@@ -266,7 +266,7 @@ export default function AdminWorkflowPage() {
                           <input
                             type="checkbox"
                             aria-label="Terminal"
-                            className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
+                            className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-500"
                             checked={draft.isTerminal}
                             onChange={(e) =>
                               setDraft((d) => ({ ...d, isTerminal: e.target.checked }))
@@ -283,7 +283,7 @@ export default function AdminWorkflowPage() {
                           <input
                             type="checkbox"
                             aria-label="Active"
-                            className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
+                            className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-500"
                             checked={draft.isActive}
                             onChange={(e) =>
                               setDraft((d) => ({ ...d, isActive: e.target.checked }))

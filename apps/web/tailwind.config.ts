@@ -4,9 +4,14 @@ import type { Config } from 'tailwindcss';
  * Apex visual identity — see `Brand guidlines.pdf`.
  *
  * The four named brand colours are fixed by the guidelines and are exposed
- * under their own names so a component can say what it means. `brand` is the
- * tint/shade ramp built around Super Blue, which is what the interactive
- * surfaces (buttons, links, active states) throughout the portal are keyed to.
+ * under their own names so a component can say what it means: `navy`, `blue`,
+ * `pearl` and `ink`. Nothing here is a generic 50-900 ramp round an arbitrary
+ * hue — every step is a tint or shade of one of those four, mixed towards
+ * white or towards black, and the named step is the guideline hex itself.
+ *
+ * `blue` deliberately shadows Tailwind's own blue, which is why the ramp is
+ * defined right down to 950: an undefined step would fall through to stock
+ * Tailwind and put a colour on the page that the brand does not own.
  */
 const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],
@@ -36,8 +41,12 @@ const config: Config = {
           100: '#fff7e6',
           200: '#ffeec9',
         },
-        /** Super Blue #0049cc at 600 — the brand's action colour. */
-        brand: {
+        /**
+         * Super Blue — the brand's action colour: primary buttons, links,
+         * active states, and the feature cards the landing page is built from.
+         */
+        blue: {
+          DEFAULT: '#0049cc',
           50: '#eef4ff',
           100: '#d9e6ff',
           200: '#b3ccff',
@@ -48,6 +57,7 @@ const config: Config = {
           700: '#003ba6',
           800: '#002d80',
           900: '#001f5c',
+          950: '#001136',
         },
       },
       fontFamily: {

@@ -20,7 +20,7 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/invoices" className="text-sm text-slate-500 hover:text-brand-700">
+      <Link href="/invoices" className="text-sm text-slate-500 hover:text-blue-700">
         ← Back to invoices
       </Link>
 
@@ -134,7 +134,7 @@ export default function InvoiceDetailPage() {
                     <h2 className="text-lg font-semibold text-slate-900">Related case</h2>
                     <Link
                       href={`/cases/${entity.case.id}`}
-                      className="mt-2 block font-medium text-brand-700 hover:underline"
+                      className="mt-2 block font-medium text-blue-700 hover:underline"
                     >
                       {entity.case.reference}
                     </Link>

@@ -71,7 +71,7 @@ export default function AdminCaseDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/admin/cases" className="text-sm text-slate-500 hover:text-brand-700">
+      <Link href="/admin/cases" className="text-sm text-slate-500 hover:text-blue-700">
         ← Back to cases
       </Link>
 
@@ -169,7 +169,7 @@ export default function AdminCaseDetailPage() {
                             </div>
                             <a
                               href={casesApi.fileUrl(id, file.id)}
-                              className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+                              className="rounded-lg px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50"
                             >
                               Download
                             </a>
@@ -260,7 +260,7 @@ export default function AdminCaseDetailPage() {
                           <div>
                             <Link
                               href={`/admin/invoices/${invoice.id}`}
-                              className="font-medium text-brand-700 hover:underline"
+                              className="font-medium text-blue-700 hover:underline"
                             >
                               {invoice.number}
                             </Link>

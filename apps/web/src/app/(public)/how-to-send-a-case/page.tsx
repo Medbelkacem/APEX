@@ -60,7 +60,7 @@ export default function HowToSendACasePage() {
                    * and against a solid Super Blue pill it reads as a seam
                    * rather than a connector. The numbers carry the order.
                    */}
-                  <div className="flex gap-5 rounded-[1.75rem] bg-brand-600 p-6 text-white shadow-pill sm:gap-6 sm:p-7">
+                  <div className="flex gap-5 rounded-[1.75rem] bg-blue-600 p-6 text-white shadow-pill sm:gap-6 sm:p-7">
                     <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-navy-700 font-bold">
                       {i + 1}
                     </span>

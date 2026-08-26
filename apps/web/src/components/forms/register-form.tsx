@@ -99,7 +99,7 @@ export function RegisterForm() {
           Once confirmed, the laboratory reviews your application. We&rsquo;ll email you as soon as
           your account is open — you won&rsquo;t be able to sign in until then.
         </Alert>
-        <Link href="/login" className="block text-sm text-brand-700 hover:underline">
+        <Link href="/login" className="block text-sm text-blue-700 hover:underline">
           Back to sign in
         </Link>
       </div>
@@ -185,7 +185,7 @@ export function RegisterForm() {
 
       <p className="text-sm text-slate-500">
         Already registered?{' '}
-        <Link href="/login" className="text-brand-700 hover:underline">
+        <Link href="/login" className="text-blue-700 hover:underline">
           Sign in
         </Link>
       </p>

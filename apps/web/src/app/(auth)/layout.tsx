@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="w-full max-w-md rounded-2xl border border-navy-100/60 bg-white p-6 shadow-sm sm:p-8">
         {children}
       </div>
-      <Link href="/" className="mt-6 text-sm text-navy-600/70 hover:text-brand-700">
+      <Link href="/" className="mt-6 text-sm text-navy-600/70 hover:text-blue-700">
         ← Back to website
       </Link>
     </div>
