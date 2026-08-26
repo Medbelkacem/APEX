@@ -3,12 +3,13 @@ import { Container } from '@/components/ui/card';
 import { LogoMark } from '@/components/ui/logo';
 import { Icon } from '@/components/marketing';
 
+/** The header's nav, repeated — the design prints the same five entries twice. */
 const NAV = [
-  { href: '/', label: 'Home' },
-  { href: '/about', label: 'About' },
-  { href: '/services', label: 'Services' },
-  { href: '/how-to-send-a-case', label: 'How to send a case' },
-  { href: '/contact', label: 'Contact' },
+  { href: '/#main', label: 'Main' },
+  { href: '/#problems', label: 'problems' },
+  { href: '/#about', label: 'About' },
+  { href: '/#services', label: 'Services' },
+  { href: '/#contact', label: 'contact' },
 ];
 
 /** The laboratory's own phone number, as a dialable link. */
@@ -100,21 +101,15 @@ export function SiteFooter() {
 
           <hr className="mt-12 border-white/15" />
 
+          {/*
+           * The two lines the design signs off with, and nothing beside them.
+           * Privacy and terms belong here once those documents exist; linking
+           * to routes the site does not serve is worse than omitting them.
+           */}
           <div className="mt-8 space-y-2 text-center">
             <p className="font-medium">© {year} Apex Digital Lab. All rights reserved.</p>
             <p className="text-white/60">
-              Focused-SKU digital lab partner exclusively for independent US general dentists.
-            </p>
-            <p className="flex flex-wrap justify-center gap-x-5 gap-y-1 pt-2 text-sm text-white/60">
-              <Link href="/privacy" className="hover:text-white">
-                Privacy
-              </Link>
-              <Link href="/terms" className="hover:text-white">
-                Terms
-              </Link>
-              <Link href="/login" className="hover:text-white">
-                Portal login
-              </Link>
+              Focused-SKU Digital Lab Partner exclusively for independent US general dentists.
             </p>
           </div>
         </div>

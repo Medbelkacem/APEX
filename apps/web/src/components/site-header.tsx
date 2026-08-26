@@ -4,14 +4,24 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/ui/card';
 import { Logo } from '@/components/ui/logo';
-import { ctaClasses } from '@/components/marketing';
 import { cn } from '@/lib/utils/cn';
 
+/**
+ * The design's nav, in its own order and its own casing — two of the five
+ * entries are deliberately lower case.
+ *
+ * These are anchors into the landing page rather than routes, which is how the
+ * design draws them. They are written absolute (`/#about`, not `#about`) so the
+ * same header works on the inner marketing pages: from /contact, "About" walks
+ * back to the homepage and lands on the section, instead of hunting for an
+ * element that is not on the current page.
+ */
 const NAV = [
-  { href: '/about', label: 'About' },
-  { href: '/services', label: 'Services' },
-  { href: '/how-to-send-a-case', label: 'How to send a case' },
-  { href: '/contact', label: 'Contact' },
+  { href: '/#main', label: 'Main' },
+  { href: '/#problems', label: 'problems' },
+  { href: '/#about', label: 'About' },
+  { href: '/#services', label: 'Services' },
+  { href: '/#contact', label: 'contact' },
 ];
 
 export function SiteHeader() {
@@ -54,7 +64,8 @@ export function SiteHeader() {
       {/*
        * Three tracks rather than `justify-between`: the design centres the nav
        * on the page, and spacing three items apart would instead centre it
-       * between the mark and the portal actions, which are not the same width.
+       * between the mark and whatever sits opposite, which are not the same
+       * width.
        */}
       <Container className="flex h-20 items-center justify-between gap-6 lg:grid lg:h-[6.25rem] lg:grid-cols-[1fr_auto_1fr]">
         <Link href="/" aria-label="Apex — home" className="text-white lg:justify-self-start">
@@ -73,12 +84,18 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-4 lg:flex lg:justify-self-end">
-          <Link href="/login" className="text-lg text-white/80 transition-colors hover:text-white">
+        {/*
+         * The design's header carries no buttons at all. The portal still needs
+         * a way in, so it is a plain text link at the quietest weight the bar
+         * has — present for the practices who already have an account, without
+         * putting a call to action beside the nav the design does not draw.
+         */}
+        <div className="hidden lg:flex lg:justify-self-end">
+          <Link
+            href="/login"
+            className="text-sm text-white/60 transition-colors hover:text-white"
+          >
             Log in
-          </Link>
-          <Link href="/register" className={ctaClasses('pearl', 'sm')}>
-            Submit a case
           </Link>
         </div>
 
@@ -107,22 +124,13 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/login"
-              onClick={() => setOpen(false)}
-              className={cn(ctaClasses('onDark'), 'flex-1')}
-            >
-              Log in
-            </Link>
-            <Link
-              href="/register"
-              onClick={() => setOpen(false)}
-              className={cn(ctaClasses('pearl'), 'flex-1')}
-            >
-              Submit a case
-            </Link>
-          </div>
+          <Link
+            href="/login"
+            onClick={() => setOpen(false)}
+            className="mt-2 rounded-lg border-t border-white/10 px-3 pb-2.5 pt-4 text-sm font-medium text-white/60 hover:text-white"
+          >
+            Log in
+          </Link>
         </Container>
       </div>
     </header>

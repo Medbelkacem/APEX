@@ -18,7 +18,9 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: '/',
     display: 'standalone',
     orientation: 'portrait-primary',
-    background_color: '#ffffff',
+    // Shiny Pearl and Oxford Navy — the splash screen an install paints
+    // before the first frame renders.
+    background_color: '#fff7e6',
     theme_color: '#001e47',
     categories: ['medical', 'productivity', 'business'],
     icons: [

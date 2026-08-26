@@ -27,7 +27,7 @@ const PROBLEMS = [
     ),
   },
   {
-    title: 'Inconsistent fit',
+    title: 'Inconsistent Fit',
     body: 'Poor fit and remakes interrupt treatment flow and waste valuable chair time.',
     icon: (
       <>
@@ -37,7 +37,7 @@ const PROBLEMS = [
     ),
   },
   {
-    title: 'Slow lab communication',
+    title: 'Slow Lab Communication',
     body: 'Delayed responses and complex channels create friction during cases.',
     icon: (
       <>
@@ -47,7 +47,7 @@ const PROBLEMS = [
     ),
   },
   {
-    title: 'Unclear pricing',
+    title: 'Unclear Pricing',
     body: 'Variable fees and vague policies hinder cost forecasting and margin protection.',
     icon: (
       <>
@@ -61,7 +61,7 @@ const PROBLEMS = [
 /** "Our Core Solutions" — what Apex does about each of them. */
 const SOLUTIONS = [
   {
-    title: 'Direct communication',
+    title: 'Direct Communication',
     body: 'Immediate access to our team via WhatsApp. No phone trees, no delays.',
     icon: (
       <>
@@ -70,12 +70,12 @@ const SOLUTIONS = [
     ),
   },
   {
-    title: 'Focused-SKU model',
+    title: 'Focused-SKU Model',
     body: 'We don’t do everything. We do four things flawlessly to reduce error rates.',
     icon: <path d="M13.5 3 5 13.5h5.5L10 21l8.5-10.5H13z" />,
   },
   {
-    title: 'Clinically proven',
+    title: 'Clinically Proven',
     body: '100% medical-grade multi-layered zirconia and IPS e.max. No experimental gimmicks.',
     icon: (
       <>
@@ -85,7 +85,7 @@ const SOLUTIONS = [
     ),
   },
   {
-    title: 'Clear pricing',
+    title: 'Clear Pricing',
     body: 'Transparent rates and a clearly defined remake policy to protect your margins.',
     icon: (
       <>
@@ -96,30 +96,10 @@ const SOLUTIONS = [
   },
 ];
 
-/**
- * The four restorations named in the brand's own landing-page design.
- *
- * The live catalog is the laboratory's and is what the Services page and the
- * case form read, so it wins whenever it answers — and it is shown whole, never
- * trimmed to four, because hiding a case type the lab actually accepts would
- * misrepresent the offering just as surely as inventing one. This list is only
- * the fallback for an unreachable API, and it is the brand's copy rather than
- * anything made up here.
- */
-const CORE_SKUS: Array<{ name: string; description: string | null }> = [
-  { name: 'Full Contour Zirconia', description: 'Reliable fit for everyday restorations.' },
-  { name: 'IPS e.max Crown', description: 'High aesthetics with controlled turnaround.' },
-  { name: 'Screw-Retained Zirconia', description: 'Reduced complication risk.' },
-  {
-    name: 'Zirconia Full-Arch Implant',
-    description: 'Structured, predictable workflow for high-value cases.',
-  },
-];
-
 /** What a first trial with the lab includes. */
 const TRIAL = [
   {
-    title: 'First remake covered',
+    title: 'First Remake Covered',
     body: 'Zero cost on your first remake',
     icon: (
       <>
@@ -129,14 +109,14 @@ const TRIAL = [
     ),
   },
   {
-    title: 'Direct support',
+    title: 'Direct Support',
     body: 'Dedicated WhatsApp access',
     icon: (
       <path d="M20 15.5v2.4a1.6 1.6 0 0 1-1.8 1.6 15.6 15.6 0 0 1-6.8-2.4 15.4 15.4 0 0 1-4.7-4.7A15.6 15.6 0 0 1 4.3 5.6 1.6 1.6 0 0 1 5.9 3.9h2.4a1.6 1.6 0 0 1 1.6 1.4c.1.8.3 1.5.6 2.2a1.6 1.6 0 0 1-.4 1.7l-1 1a12.4 12.4 0 0 0 4.7 4.7l1-1a1.6 1.6 0 0 1 1.7-.4c.7.3 1.4.5 2.2.6a1.6 1.6 0 0 1 1.3 1.4Z" />
     ),
   },
   {
-    title: 'Full contour zirconia',
+    title: 'Full Contour Zirconia',
     body: 'Flat rate for your first month',
     icon: (
       <>
@@ -162,9 +142,13 @@ function solutionsHeading(count: number): string {
 }
 
 export default async function HomePage() {
-  /** Same admin-managed catalog the Services page reads — never a static list. */
-  const caseTypes = await loadPublicCaseTypes();
-  const skus = caseTypes.length > 0 ? caseTypes : CORE_SKUS;
+  /*
+   * The laboratory's own catalog, and nothing else. `loadPublicCaseTypes`
+   * answers with an empty list when the API is unreachable, and that empty
+   * list is rendered as an empty grid on purpose: a hard-coded stand-in would
+   * keep advertising four restorations after the laboratory had changed them.
+   */
+  const skus = await loadPublicCaseTypes();
 
   return (
     <>
@@ -174,9 +158,13 @@ export default async function HomePage() {
        * more than the copy needs — a minimum plus vertical centring holds that
        * proportion without padding that has to be re-tuned per breakpoint.
        */}
-      <section className="relative isolate flex min-h-[36rem] items-center overflow-hidden bg-navy-800 lg:min-h-[56.5rem]">
+      <section
+        id="main"
+        aria-labelledby="hero-heading"
+        className="relative isolate flex min-h-[36rem] items-center overflow-hidden bg-navy-800 lg:min-h-[56.5rem]"
+      >
         <Image
-          src="/images/lab-workstation.jpg"
+          src="/images/hero.jpg"
           alt=""
           fill
           priority
@@ -192,7 +180,7 @@ export default async function HomePage() {
          * is the only thing that survives. The gradient on top is there to
          * darken the two edges the headline and the header sit against.
          */}
-        <div aria-hidden="true" className="absolute inset-0 bg-brand-600 mix-blend-multiply" />
+        <div aria-hidden="true" className="absolute inset-0 bg-blue-600 mix-blend-multiply" />
         <div
           aria-hidden="true"
           className="absolute inset-0 bg-gradient-to-b from-navy-900/45 via-transparent to-navy-900/45"
@@ -201,9 +189,12 @@ export default async function HomePage() {
         <Container className="relative w-full pb-16 pt-32 text-center sm:pb-20 sm:pt-36">
           <Display
             as="h1"
+            id="hero-heading"
             className="mx-auto max-w-[64rem] text-4xl text-white sm:text-5xl lg:text-[4.5rem]"
           >
-            Stop Wasting Chair Time On Unpredictable Lab Work.
+            {/* Broken where the design breaks it, rather than wherever the measure runs out. */}
+            <span className="block">Stop Wasting Chair Time On</span>
+            <span className="block">Unpredictable Lab Work.</span>
           </Display>
           {/* Wide enough to break in two, as the design sets it. */}
           <p className="mx-auto mt-6 max-w-[62rem] text-base leading-relaxed text-white/85 sm:text-lg">
@@ -213,17 +204,17 @@ export default async function HomePage() {
           </p>
           <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
             <Link href="/register" className={ctaClasses('pearl')}>
-              Submit your case
+              Submit Your Case
             </Link>
             <Link href="/contact" className={ctaClasses('onDark')}>
-              Book a consultation
+              Book a Consultation
             </Link>
           </div>
         </Container>
       </section>
 
       {/* ── Lab Reality ──────────────────────────────────────────────────── */}
-      <section className="py-16 sm:py-24 lg:py-32">
+      <section id="problems" aria-labelledby="problems-heading" className="scroll-mt-20 py-16 sm:py-24 lg:py-32 lg:scroll-mt-[6.25rem]">
         <Container>
           {/* Centred on the page, not on the heading — see `SectionRule`. */}
           <SectionRule className="mx-auto" />
@@ -235,7 +226,7 @@ export default async function HomePage() {
           <div className="mt-12 grid items-start gap-10 lg:mt-14 lg:grid-cols-[523fr_629fr] lg:gap-32">
             {/* Copy first on a phone; the design keeps it right of the list on desktop. */}
             <div className="lg:order-2">
-              <Display className="text-3xl text-navy-700 sm:text-4xl lg:text-[4.5rem]">
+              <Display id="problems-heading" className="text-3xl text-navy-700 sm:text-4xl lg:text-[4.5rem]">
                 Lab Reality
               </Display>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-navy-600/80">
@@ -246,7 +237,7 @@ export default async function HomePage() {
               <div className="relative mt-8 aspect-[4/3] overflow-hidden rounded-[1.75rem] shadow-pill">
                 <Image
                   src="/images/chairside.jpg"
-                  alt="A clinician seating a restoration chairside."
+                  alt="A clinician checking a restoration chairside."
                   fill
                   sizes="(min-width: 1024px) 40vw, 100vw"
                   className="object-cover"
@@ -266,13 +257,13 @@ export default async function HomePage() {
       </section>
 
       {/* ── Our Core Solutions ───────────────────────────────────────────── */}
-      <section className="py-16 sm:py-24 lg:py-32">
+      <section id="about" aria-labelledby="about-heading" className="scroll-mt-20 py-16 sm:py-24 lg:py-32 lg:scroll-mt-[6.25rem]">
         <Container>
           <SectionRule className="mx-auto" />
           {/* Mirrored, and the copy is the wider column here: 655 / 103 / 523. */}
           <div className="mt-12 grid items-start gap-10 lg:mt-14 lg:grid-cols-[655fr_523fr] lg:gap-[6.4375rem]">
             <div>
-              <Display className="text-3xl text-navy-700 sm:text-4xl lg:text-[4.5rem]">
+              <Display id="about-heading" className="text-3xl text-navy-700 sm:text-4xl lg:text-[4.5rem]">
                 Our Core Solutions
               </Display>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-navy-600/80">
@@ -283,8 +274,8 @@ export default async function HomePage() {
               </p>
               <div className="relative mt-8 aspect-[4/3] overflow-hidden rounded-[1.75rem] shadow-pill">
                 <Image
-                  src="/images/milling-unit.jpg"
-                  alt="A technician loading a milling unit in the laboratory."
+                  src="/images/finishing.jpg"
+                  alt="A technician finishing a zirconia bridge in the laboratory."
                   fill
                   sizes="(min-width: 1024px) 40vw, 100vw"
                   className="object-cover"
@@ -304,20 +295,33 @@ export default async function HomePage() {
       </section>
 
       {/* ── Four Perfected Core Solutions ────────────────────────────────── */}
-      <section className="relative isolate overflow-hidden bg-brand-600 py-16 text-white sm:py-24 lg:py-32">
+      <section
+        id="services"
+        aria-labelledby="services-heading"
+        className="relative isolate scroll-mt-20 overflow-hidden bg-blue-600 py-16 text-white sm:py-24 lg:scroll-mt-[6.25rem] lg:py-32"
+      >
+        {/*
+         * The design washes this band with its own photograph of stone models
+         * rather than a flat fill — bled off the left edge, drained of colour
+         * and left at a quarter strength so it reads as texture behind the
+         * cards and never competes with them.
+         */}
         <Image
-          src="/images/appliances.jpg"
+          src="/images/models.jpg"
           alt=""
           fill
           sizes="100vw"
           className="object-cover opacity-25 mix-blend-luminosity"
         />
-        <div aria-hidden="true" className="absolute inset-0 bg-brand-600/85" />
+        <div aria-hidden="true" className="absolute inset-0 bg-blue-600/85" />
 
         <Container className="relative">
           <div className="text-center">
             <SectionRule className="mx-auto bg-white" />
-            <Display className="mx-auto mt-10 max-w-[68rem] text-3xl sm:text-4xl lg:text-[4.5rem]">
+            <Display
+              id="services-heading"
+              className="mx-auto mt-10 max-w-[68rem] text-3xl sm:text-4xl lg:text-[4.5rem]"
+            >
               {solutionsHeading(skus.length)}
             </Display>
             <p className="mx-auto mt-5 max-w-3xl text-lg leading-relaxed text-white/85">
@@ -347,20 +351,17 @@ export default async function HomePage() {
               </li>
             ))}
           </ul>
-
-          <div className="mt-12 text-center">
-            <Link href="/services" className={ctaClasses('pearl')}>
-              Explore services
-            </Link>
-          </div>
         </Container>
       </section>
 
       {/* ── Start with a small trial ─────────────────────────────────────── */}
-      <section className="py-16 sm:py-24 lg:py-32">
+      <section id="contact" aria-labelledby="trial-heading" className="scroll-mt-20 py-16 sm:py-24 lg:py-32 lg:scroll-mt-[6.25rem]">
         <Container className="text-center">
           <SectionRule className="mx-auto" />
-          <Display className="mx-auto mt-10 max-w-5xl text-3xl text-navy-700 sm:text-4xl lg:text-[4.5rem]">
+          <Display
+            id="trial-heading"
+            className="mx-auto mt-10 max-w-5xl text-3xl text-navy-700 sm:text-4xl lg:text-[4.5rem]"
+          >
             {/* Broken by hand: left to wrap, the line splits "Long-Term" at the hyphen. */}
             <span className="block">Start with a Small Trial.</span>
             <span className="block">No Long-Term Commitment.</span>
@@ -374,7 +375,7 @@ export default async function HomePage() {
             {TRIAL.map((item) => (
               <li
                 key={item.title}
-                className="flex flex-col items-center rounded-[1.75rem] bg-brand-600 p-8 text-white shadow-pill sm:p-10"
+                className="flex flex-col items-center rounded-[1.75rem] bg-blue-600 p-8 text-white shadow-pill sm:p-10"
               >
                 <IconTile>
                   <Icon>{item.icon}</Icon>
@@ -388,11 +389,15 @@ export default async function HomePage() {
           </ul>
 
           <div className="mt-12 flex flex-col justify-center gap-4 sm:flex-row">
+            {/*
+             * The design file reads "submit your fist case". Shipped corrected;
+             * the typo is logged in TODO-CLIENT.md for the client to confirm.
+             */}
             <Link href="/register" className={ctaClasses('navy')}>
-              Submit your first case
+              Submit Your First Case
             </Link>
             <Link href="/contact" className={ctaClasses('blue')}>
-              Book a consultation
+              Book a Consultation
             </Link>
           </div>
         </Container>

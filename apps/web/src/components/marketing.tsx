@@ -18,7 +18,7 @@ type CtaTone = 'pearl' | 'navy' | 'blue' | 'onDark';
 const CTA_TONES: Record<CtaTone, string> = {
   pearl: 'bg-pearl text-navy-700 hover:bg-pearl-200',
   navy: 'bg-navy-700 text-white hover:bg-navy-800',
-  blue: 'bg-brand-600 text-white hover:bg-brand-700',
+  blue: 'bg-blue-600 text-white hover:bg-blue-700',
   // Not a plain outline: the design washes the pill with about 15% white.
   onDark: 'border border-white/45 bg-white/15 text-white hover:bg-white/25',
 };
@@ -103,7 +103,7 @@ export function SectionRule({ className }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={cn('block h-1.5 w-[12.75rem] max-w-full rounded-full bg-brand-600', className)}
+      className={cn('block h-1.5 w-[12.75rem] max-w-full rounded-full bg-blue-600', className)}
     />
   );
 }
@@ -123,13 +123,20 @@ export function SectionRule({ className }: { className?: string }) {
 export function Display({
   as: Tag = 'h2',
   className,
+  id,
   children,
 }: {
   as?: 'h1' | 'h2' | 'h3';
   className?: string;
+  /** Every section is labelled by its own heading, so headings need naming. */
+  id?: string;
   children: ReactNode;
 }) {
-  return <Tag className={cn('font-display font-bold !leading-[1.331]', className)}>{children}</Tag>;
+  return (
+    <Tag id={id} className={cn('font-display font-bold !leading-[1.331]', className)}>
+      {children}
+    </Tag>
+  );
 }
 
 /**
@@ -151,7 +158,7 @@ export function FeaturePill({
   return (
     <div
       className={cn(
-        'flex items-center gap-4 rounded-[1.75rem] bg-brand-600 p-5 text-white shadow-pill sm:gap-6 sm:p-7',
+        'flex items-center gap-4 rounded-[1.75rem] bg-blue-600 p-5 text-white shadow-pill sm:gap-6 sm:p-7',
         className,
       )}
     >
@@ -200,7 +207,7 @@ export function PageHeader({
       <Container className="relative pb-16 pt-36 sm:pb-20 sm:pt-40">
         <div className="max-w-3xl">
           <SectionRule />
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-brand-200">
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-blue-200">
             {eyebrow}
           </p>
           <Display as="h1" className="mt-3 text-4xl sm:text-5xl">

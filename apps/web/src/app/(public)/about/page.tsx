@@ -105,8 +105,8 @@ export default function AboutPage() {
             {/* Portrait source, so the column crops it barely at all. */}
             <div className="relative aspect-[3/4] overflow-hidden rounded-[1.75rem] shadow-pill">
               <Image
-                src="/images/appliances.jpg"
-                alt="Finished restorations laid out after production."
+                src="/images/models.jpg"
+                alt="Stone models laid out on the bench before production."
                 fill
                 sizes="(min-width: 1024px) 22rem, 100vw"
                 className="object-cover"
@@ -126,7 +126,7 @@ export default function AboutPage() {
               <li key={item.title}>
                 <Link
                   href={item.href}
-                  className="flex h-full flex-col rounded-[1.75rem] bg-brand-600 p-7 shadow-pill transition-colors hover:bg-brand-500"
+                  className="flex h-full flex-col rounded-[1.75rem] bg-blue-600 p-7 shadow-pill transition-colors hover:bg-blue-500"
                 >
                   <IconTile>
                     <Icon>{item.icon}</Icon>
