@@ -4,27 +4,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/ui/card';
 import { Logo } from '@/components/ui/logo';
+import { SiteNavLinks, useSiteNav } from '@/components/site-nav';
 import { cn } from '@/lib/utils/cn';
 
-/**
- * The design's nav, in its own order and its own casing — two of the five
- * entries are deliberately lower case.
- *
- * These are anchors into the landing page rather than routes, which is how the
- * design draws them. They are written absolute (`/#about`, not `#about`) so the
- * same header works on the inner marketing pages: from /contact, "About" walks
- * back to the homepage and lands on the section, instead of hunting for an
- * element that is not on the current page.
- */
-const NAV = [
-  { href: '/#main', label: 'Main' },
-  { href: '/#problems', label: 'problems' },
-  { href: '/#about', label: 'About' },
-  { href: '/#services', label: 'Services' },
-  { href: '/#contact', label: 'contact' },
-];
-
 export function SiteHeader() {
+  // The design's anchors on the landing page, the DRS's routes elsewhere —
+  // see `site-nav.tsx` for why the header carries two different lists.
+  const nav = useSiteNav();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -72,17 +58,11 @@ export function SiteHeader() {
           <Logo size="md" />
         </Link>
 
-        <nav className="hidden items-center gap-9 lg:flex" aria-label="Primary">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-lg text-white/80 transition-colors hover:text-white"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <SiteNavLinks
+          ariaLabel="Primary"
+          className="hidden items-center gap-9 lg:flex"
+          linkClassName="text-lg text-white/80 transition-colors hover:text-white"
+        />
 
         {/*
          * The design's header carries no buttons at all. The portal still needs
@@ -114,7 +94,7 @@ export function SiteHeader() {
         className={cn('border-t border-white/10 bg-navy-700 lg:hidden', open ? 'block' : 'hidden')}
       >
         <Container className="flex flex-col gap-1 py-4">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}

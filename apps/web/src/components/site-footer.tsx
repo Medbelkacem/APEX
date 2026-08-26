@@ -2,15 +2,7 @@ import Link from 'next/link';
 import { Container } from '@/components/ui/card';
 import { LogoMark } from '@/components/ui/logo';
 import { Icon } from '@/components/marketing';
-
-/** The header's nav, repeated — the design prints the same five entries twice. */
-const NAV = [
-  { href: '/#main', label: 'Main' },
-  { href: '/#problems', label: 'problems' },
-  { href: '/#about', label: 'About' },
-  { href: '/#services', label: 'Services' },
-  { href: '/#contact', label: 'contact' },
-];
+import { SiteNavLinks } from '@/components/site-nav';
 
 /** The laboratory's own phone number, as a dialable link. */
 const phone = process.env.LAB_PHONE?.trim();
@@ -72,17 +64,12 @@ export function SiteFooter() {
               <LogoMark className="h-24 w-24 lg:h-[9.5rem] lg:w-[9.5rem]" />
             </Link>
 
-            <nav className="flex flex-wrap justify-center gap-x-9 gap-y-3" aria-label="Footer">
-              {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-lg text-white/80 transition-colors hover:text-white"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            {/* The design prints the same five entries the header carries. */}
+            <SiteNavLinks
+              ariaLabel="Footer"
+              className="flex flex-wrap justify-center gap-x-9 gap-y-3"
+              linkClassName="text-lg text-white/80 transition-colors hover:text-white"
+            />
 
             <ul className="flex items-center gap-4 lg:justify-self-end">
               {socials.map((social) => (

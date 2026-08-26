@@ -11,6 +11,14 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+/*
+ * The footer's nav is the shared one, and which five entries it renders
+ * depends on the route — anchors on the landing page, routes elsewhere. The
+ * pathname is the only thing these tests need from Next's router.
+ */
+let pathname = '/';
+vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
+
 const ENV_KEYS = ['LAB_PHONE', 'LAB_INSTAGRAM_URL', 'LAB_FACEBOOK_URL'] as const;
 
 let saved: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
@@ -24,6 +32,7 @@ async function renderFooter(env: Partial<Record<(typeof ENV_KEYS)[number], strin
 }
 
 beforeEach(() => {
+  pathname = '/';
   saved = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
 });
 
@@ -74,7 +83,7 @@ describe('SiteFooter copy', () => {
     ).toBeInTheDocument();
   });
 
-  it('repeats the five nav entries the design prints, casing included', async () => {
+  it('repeats the five entries the design prints, casing included', async () => {
     await renderFooter({});
     const nav = screen.getByRole('navigation', { name: 'Footer' });
 
@@ -86,6 +95,24 @@ describe('SiteFooter copy', () => {
       ['About', '/#about'],
       ['Services', '/#services'],
       ['contact', '/#contact'],
+    ]);
+  });
+
+  it('carries the DRS\u2019s five pages once you are off the landing page', async () => {
+    // The design's anchors cannot work here: /contact has no #problems to
+    // reach, and About, Services and How to send a case would be unreachable.
+    pathname = '/contact';
+    await renderFooter({});
+    const nav = screen.getByRole('navigation', { name: 'Footer' });
+
+    expect(
+      [...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]),
+    ).toEqual([
+      ['Home', '/'],
+      ['About', '/about'],
+      ['Services', '/services'],
+      ['How to send a case', '/how-to-send-a-case'],
+      ['Contact', '/contact'],
     ]);
   });
 
