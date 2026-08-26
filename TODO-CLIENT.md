@@ -2,6 +2,7 @@
 
 Everything the Apex build needs that is not in `Brand guidlines.pdf`,
 `Apex landing page.pdf`, `docs/brand/logo-source.jpg` or `APEX-Prolync-DRS.docx`.
+All four were read; the DRS was read as functional scope and not modified.
 
 Nothing on this list has been guessed, approximated with a lookalike, or filled
 with a placeholder. Where a value is missing the site omits the element
@@ -126,32 +127,54 @@ what was approved; all five are one-line changes if you disagree.
    that band with its own photograph of stone models, bled off the left edge.
    **Shipped as the design renders it** (`models.jpg`, drained of colour at 25%).
 
+6. **Four Perfected Core Solutions band is Oxford Navy, not Super Blue.** The
+   only place the site deviates from the design's colour, and it is a
+   deliberate client instruction rather than an oversight. The palette
+   supports it — navy is the brand's other ground, the header above and the
+   footer below already sit on it, and white on navy clears AA at 16.5:1
+   against Super Blue's 7.4:1. Say the word and it goes back to blue in one
+   line. The feature cards in Lab Reality, Our Core Solutions and the Trial
+   section are all still Super Blue.
+
 ---
 
-## 4. Navigation — a consequence worth flagging
+## 4. Navigation — the design and the DRS disagree, and both are satisfied
 
-The header and footer now carry the design's five anchor links exactly as
-specified: **Main · problems · About · Services · contact**, pointing at
-`/#main`, `/#problems`, `/#about`, `/#services`, `/#contact`. They are written
-absolute so they also work from the inner pages.
+The approved design draws one header: five anchors into the landing page's own
+sections — **Main · problems · About · Services · contact**. That header is
+correct on the landing page and cannot work anywhere else, because `/contact`
+has no `#problems` section to jump to.
 
-The side effect is that **`/about`, `/services` and `/how-to-send-a-case` are no
-longer reachable from the navigation.** They are still built, still in the
-sitemap, and still linked from within page bodies — but the design's header has
-no entry for them, and "About" now jumps to the landing page's *Our Core
-Solutions* band rather than the About page.
+The DRS requires five *navigable pages* and says so three times: the Marketing
+Website section ("Global elements — Header navigation…"), the non-functional
+requirement that navigation be "consistent across each surface", and the
+deliverables checklist, which lists Home, About, Services, Contact and How to
+Send a Case each as a separate line item.
 
-Three ways forward, whichever you prefer:
+Shipping the design's anchors everywhere would have satisfied the mockup by
+making three of those five pages unreachable. So:
 
-- leave it (the design's header, literally);
-- retire the three inner pages and let the landing page be the whole site;
-- render the anchors on `/` and route links elsewhere.
+- **on `/`** — the design's five anchors, verbatim, casing included;
+- **on every other public page** — Home · About · Services · How to send a
+  case · Contact.
 
-The design's header also carries **no auth buttons**. `/login` is now a quiet
-text link at the right of the bar and an entry in the mobile menu; the "Submit a
+Each page carries the navigation that can actually work on it. Header and
+footer share one source (`src/components/site-nav.tsx`) so the two never drift.
+
+The design's header also carries **no auth buttons**. `/login` is a quiet text
+link at the right of the bar and an entry in the mobile menu; the "Submit a
 case" button that used to sit there has been removed.
 
----
+### Two DRS requirements still blocked on you
+
+- **Footer legal links.** The DRS asks for "footer with brand and legal links".
+  Privacy and Terms do not exist as pages, so the footer links to neither — a
+  link to a 404 is worse than an omission. Both need writing.
+- **About page content.** The DRS specifies "Laboratory background, team,
+  certifications, equipment". Every one of those is a factual claim about a
+  real business that cannot be written by the development team, so the page
+  carries the mission and vision verbatim from the brand guidelines and nothing
+  else. Supply the four and the page fills out.
 
 ## 5. Measurements approximated from the PDF
 
@@ -170,6 +193,10 @@ none is verified — please check each against Figma.
 | Two-column ratios | Lab Reality / Core Solutions | 523∶629 and 655∶523, 128px and 103px gutters |
 | Headline leading | All display headings | 1.331em (Muslone's own ascent + descent) |
 | Anchor scroll offset | New — not in the design | Header height (5rem / 6.25rem), so a jumped-to section clears the fixed bar |
+
+The responsive breakpoints (360 / 768 / 1024 / 1440) and the ≥ 44 × 44 px tap
+target floor are not approximations — both come from the DRS's Responsiveness
+section, and both are met. The floating contact button is 56 × 56.
 
 ---
 
