@@ -298,13 +298,21 @@ export default async function HomePage() {
       <section
         id="services"
         aria-labelledby="services-heading"
-        className="relative isolate scroll-mt-20 overflow-hidden bg-blue-600 py-16 text-white sm:py-24 lg:scroll-mt-[6.25rem] lg:py-32"
+        className="relative isolate scroll-mt-20 overflow-hidden bg-navy-700 py-16 text-white sm:py-24 lg:scroll-mt-[6.25rem] lg:py-32"
       >
         {/*
-         * The design washes this band with its own photograph of stone models
+         * Oxford Navy rather than the Super Blue the mockup fills this band
+         * with. It is the one place the site deviates from the design's colour,
+         * on the client's instruction, and it is a deviation the palette
+         * supports: navy is the brand's other ground, it is what the footer
+         * below and the header above already sit on, and white on it clears AA
+         * at 16.5:1 against Super Blue's 7.4:1.
+         *
+         * The band still carries the design's own photograph of stone models
          * rather than a flat fill — bled off the left edge, drained of colour
          * and left at a quarter strength so it reads as texture behind the
-         * cards and never competes with them.
+         * cards and never competes with them. The wash over it is lighter than
+         * it was: navy swallows the texture that Super Blue only muted.
          */}
         <Image
           src="/images/models.jpg"
@@ -313,7 +321,7 @@ export default async function HomePage() {
           sizes="100vw"
           className="object-cover opacity-25 mix-blend-luminosity"
         />
-        <div aria-hidden="true" className="absolute inset-0 bg-blue-600/85" />
+        <div aria-hidden="true" className="absolute inset-0 bg-navy-700/75" />
 
         <Container className="relative">
           <div className="text-center">
@@ -340,7 +348,7 @@ export default async function HomePage() {
             {skus.map((sku) => (
               <li
                 key={sku.name}
-                className="flex min-h-[11rem] w-full flex-col items-center justify-center rounded-[1.75rem] border border-white/25 bg-white/10 p-8 text-center backdrop-blur-sm sm:w-[calc(50%-0.9375rem)] sm:p-10"
+                className="flex min-h-[11rem] w-full flex-col items-center justify-center rounded-[1.75rem] border border-white/30 bg-white/[0.14] p-8 text-center backdrop-blur-sm sm:w-[calc(50%-0.9375rem)] sm:p-10"
               >
                 <h3 className="text-xl font-bold sm:text-[1.75rem]">{sku.name}</h3>
                 {sku.description && (
