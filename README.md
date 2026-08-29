@@ -1,4 +1,4 @@
-# Dental Laboratory Management Platform
+# Apex Digital Lab platform
 
 A production-grade web platform that digitizes the operations of a dental laboratory —
 covering a public **marketing website**, an authenticated **dentist portal**, and an
@@ -46,7 +46,7 @@ pnpm start:local
 
 - Web → http://localhost:3000
 - API → http://localhost:4000 (OpenAPI docs at `/docs`)
-- Default login → `admin@dental-lab.test` / `ChangeMe123!`
+- Default login → `admin@apex.example` / `ChangeMe123!`
 
 Prefer to manage the database yourself? `pnpm db:local` runs just the userspace
 MongoDB (seeded); then `pnpm dev` runs the apps in another terminal.

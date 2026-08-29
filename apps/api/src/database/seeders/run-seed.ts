@@ -7,6 +7,10 @@ import {
   CaseStatusSchema,
   CaseType,
   CaseTypeSchema,
+  DentalCase,
+  DentalCaseSchema,
+  PricingRule,
+  PricingRuleSchema,
   User,
   UserSchema,
 } from '../entities';
@@ -30,10 +34,14 @@ async function run(): Promise<void> {
     const userModel = mongoose.model(User.name, UserSchema);
     const caseStatusModel = mongoose.model(CaseStatus.name, CaseStatusSchema);
     const caseTypeModel = mongoose.model(CaseType.name, CaseTypeSchema);
+    // Read-only here: the case-type seeder checks them before withdrawing a
+    // placeholder, so a type something still points at is never hard-deleted.
+    const caseModel = mongoose.model(DentalCase.name, DentalCaseSchema);
+    const pricingRuleModel = mongoose.model(PricingRule.name, PricingRuleSchema);
 
     await seedAdmin(userModel);
     await seedCaseStatuses(caseStatusModel);
-    await seedCaseTypes(caseTypeModel);
+    await seedCaseTypes(caseTypeModel, caseModel, pricingRuleModel);
     // eslint-disable-next-line no-console
     console.log('Seed complete.');
   } finally {

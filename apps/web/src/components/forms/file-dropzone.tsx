@@ -92,7 +92,7 @@ export function FileDropzone({
         }}
         className={cn(
           'rounded-xl border-2 border-dashed p-6 text-center transition-colors sm:p-8',
-          dragging ? 'border-brand-500 bg-brand-50' : 'border-slate-300 bg-slate-50',
+          dragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300 bg-slate-50',
           disabled && 'opacity-60',
         )}
       >
@@ -100,7 +100,7 @@ export function FileDropzone({
           Drag and drop files here, or{' '}
           <label
             htmlFor={inputId}
-            className="cursor-pointer text-brand-700 underline underline-offset-2"
+            className="cursor-pointer text-blue-700 underline underline-offset-2"
           >
             browse
           </label>
@@ -167,7 +167,7 @@ export function UploadProgressBar({ percent }: { percent: number }) {
     <div className="mt-4">
       <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
         <div
-          className="h-full rounded-full bg-brand-600 transition-all"
+          className="h-full rounded-full bg-blue-600 transition-all"
           style={{ width: `${percent}%` }}
           role="progressbar"
           aria-valuenow={percent}

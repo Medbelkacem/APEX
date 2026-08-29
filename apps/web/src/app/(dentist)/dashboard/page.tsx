@@ -65,7 +65,7 @@ export default function DentistDashboardPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Recent cases</h2>
-          <Link href="/cases" className="text-sm font-medium text-brand-700 hover:underline">
+          <Link href="/cases" className="text-sm font-medium text-blue-700 hover:underline">
             View all
           </Link>
         </div>
@@ -107,7 +107,7 @@ export default function DentistDashboardPage() {
                       <Td>
                         <Link
                           href={`/cases/${row.id}`}
-                          className="font-medium text-brand-700 hover:underline"
+                          className="font-medium text-blue-700 hover:underline"
                         >
                           {row.reference}
                         </Link>

@@ -290,7 +290,7 @@ function AdminInvoicesView() {
                       <Td>
                         <Link
                           href={`/admin/invoices/${invoice.id}`}
-                          className="font-medium text-brand-700 hover:underline"
+                          className="font-medium text-blue-700 hover:underline"
                         >
                           {invoice.number}
                         </Link>

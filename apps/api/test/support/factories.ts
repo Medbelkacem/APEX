@@ -50,7 +50,7 @@ export class Fixtures {
   async user(overrides: Partial<User> = {}): Promise<User> {
     const repo = this.dataSource.getRepository(User);
     const entity = repo.create({
-      email: `user-${unique()}@dental-lab.test`,
+      email: `user-${unique()}@apex.example`,
       firstName: 'Test',
       lastName: 'User',
       role: UserRole.DENTIST,

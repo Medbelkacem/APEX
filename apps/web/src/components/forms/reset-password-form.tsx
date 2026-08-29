@@ -62,7 +62,7 @@ export function ResetPasswordForm() {
       <div className="space-y-4">
         <h1 className="text-2xl font-bold text-slate-900">Invalid link</h1>
         <Alert tone="error">This reset link is missing information. Please request a new one.</Alert>
-        <Link href="/forgot-password" className="text-sm text-brand-700 hover:underline">
+        <Link href="/forgot-password" className="text-sm text-blue-700 hover:underline">
           Request a new link
         </Link>
       </div>

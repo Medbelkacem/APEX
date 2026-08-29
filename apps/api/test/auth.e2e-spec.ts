@@ -103,7 +103,7 @@ describe('Authentication (e2e)', () => {
         .send({ email: user.email, password: 'WrongPassw0rd!' });
       const unknownEmail = await api(app)
         .post('/api/auth/login')
-        .send({ email: 'nobody@dental-lab.test', password: 'WrongPassw0rd!' });
+        .send({ email: 'nobody@apex.example', password: 'WrongPassw0rd!' });
 
       expect(unknownEmail.status).toBe(wrongPassword.status);
       expect(unknownEmail.body.message).toBe(wrongPassword.body.message);
@@ -559,7 +559,7 @@ describe('Authentication (e2e)', () => {
       const known = await api(app).post('/api/auth/forgot-password').send({ email: user.email });
       const unknown = await api(app)
         .post('/api/auth/forgot-password')
-        .send({ email: 'nobody@dental-lab.test' });
+        .send({ email: 'nobody@apex.example' });
 
       expect(unknown.status).toBe(known.status);
       expect(unknown.body).toEqual(known.body);
@@ -747,7 +747,7 @@ describe('Authentication (e2e)', () => {
         .post('/api/users')
         .set('Cookie', session.cookie)
         .send({
-          email: 'new-admin@dental-lab.test',
+          email: 'new-admin@apex.example',
           firstName: 'New',
           lastName: 'Admin',
           role: 'admin',
@@ -764,7 +764,7 @@ describe('Authentication (e2e)', () => {
         .post('/api/users')
         .set('Cookie', session.cookie)
         .send({
-          email: 'new-admin@dental-lab.test',
+          email: 'new-admin@apex.example',
           firstName: 'New',
           lastName: 'Admin',
           role: 'admin',

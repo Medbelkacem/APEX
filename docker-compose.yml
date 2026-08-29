@@ -1,4 +1,4 @@
-# Local development stack for the Dental Lab platform.
+# Local development stack for the Apex Digital Lab platform.
 # MongoDB + Redis + Mailpit are enough to run the app locally;
 # api/web services are provided for a full containerized run.
 services:

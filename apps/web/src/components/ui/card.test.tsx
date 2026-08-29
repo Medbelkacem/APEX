@@ -3,7 +3,7 @@
  *
  * Tailwind resolves utilities of equal specificity by stylesheet order, not by
  * their order in the class attribute, so a hard-coded `bg-white` default beats
- * a caller's `bg-brand-700` no matter which is written last. That produced an
+ * a caller's `bg-blue-700` no matter which is written last. That produced an
  * invisible white-on-white CTA on the homepage. Card now emits each default
  * only when the caller has not claimed that group — these tests pin that down,
  * because the failure mode is silent and visual.
@@ -29,9 +29,9 @@ describe('Card', () => {
   });
 
   it('drops the default background when the caller sets one', () => {
-    const el = card('bg-brand-700');
+    const el = card('bg-blue-700');
 
-    expect(el).toHaveClass('bg-brand-700');
+    expect(el).toHaveClass('bg-blue-700');
     expect(el).not.toHaveClass('bg-white');
   });
 
@@ -50,7 +50,7 @@ describe('Card', () => {
   });
 
   it('overrides only the group the caller claimed', () => {
-    const el = card('bg-brand-700');
+    const el = card('bg-blue-700');
 
     // Padding and border were not claimed, so their defaults must survive.
     expect(el).toHaveClass('p-6', 'border-slate-200');
@@ -64,7 +64,7 @@ describe('Card', () => {
   });
 
   it('recognises an override that is not the first class listed', () => {
-    const el = card('shadow-lg bg-brand-700');
+    const el = card('shadow-lg bg-blue-700');
 
     expect(el).not.toHaveClass('bg-white');
   });
@@ -77,7 +77,7 @@ describe('Card', () => {
   });
 
   it('keeps the structural classes that are never conditional', () => {
-    const el = card('bg-brand-700 p-0 border-amber-300');
+    const el = card('bg-blue-700 p-0 border-amber-300');
 
     expect(el).toHaveClass('rounded-xl', 'border', 'shadow-sm');
   });
@@ -98,7 +98,7 @@ describe('Container', () => {
   it('applies the shared page gutters', () => {
     render(<Container data-testid="container">content</Container>);
 
-    expect(screen.getByTestId('container')).toHaveClass('mx-auto', 'w-full', 'max-w-6xl');
+    expect(screen.getByTestId('container')).toHaveClass('mx-auto', 'w-full', 'max-w-[84rem]');
   });
 
   it('appends caller classes', () => {
@@ -108,6 +108,6 @@ describe('Container', () => {
       </Container>,
     );
 
-    expect(screen.getByTestId('container')).toHaveClass('py-12', 'max-w-6xl');
+    expect(screen.getByTestId('container')).toHaveClass('py-12', 'max-w-[84rem]');
   });
 });

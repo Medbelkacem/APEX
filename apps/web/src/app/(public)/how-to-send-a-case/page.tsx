@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Container, Card } from '@/components/ui/card';
-import { buttonClasses } from '@/components/ui/button';
+import { Container } from '@/components/ui/card';
+import { CtaBand, Display, PageHeader, SectionRule, ctaClasses } from '@/components/marketing';
 
 export const metadata: Metadata = {
   title: 'How to Send a Case',
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const STEPS = [
   {
     title: 'Register your practice',
-    body: 'Contact us to receive a portal invitation. Set your password from the emailed link and complete your practice profile.',
+    body: 'Create an account with your name, email, and clinic details. Confirm your address from the emailed link — the laboratory reviews the application and opens portal access.',
   },
   {
     title: 'Start a new case',
@@ -20,7 +20,7 @@ const STEPS = [
   },
   {
     title: 'Upload your scans',
-    body: 'Drag and drop one or more STL files (binary or ASCII, up to 100 MB each). Add photos or PDFs as supporting attachments.',
+    body: 'Drag and drop your STL files, photos, or PDFs. At least one file is required — a case cannot be submitted without something for the technician to work from.',
   },
   {
     title: 'Add clinical notes & submit',
@@ -32,46 +32,85 @@ const STEPS = [
   },
 ];
 
+/** The formats the portal accepts, with the ceilings the uploader enforces. */
+const FORMATS = [
+  { label: 'STL scans', detail: 'Binary or ASCII, up to 100 MB per file' },
+  { label: 'Photographs', detail: 'JPG or PNG, up to 10 MB each' },
+  { label: 'Documents', detail: 'PDF, up to 25 MB each' },
+];
+
 export default function HowToSendACasePage() {
   return (
-    <Container className="py-12 sm:py-16">
-      <div className="mx-auto max-w-3xl">
-        <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">How to send a case</h1>
-        <p className="mt-4 text-base text-slate-600 sm:text-lg">
-          Getting a case to our lab takes just a few minutes once your practice is set up.
-        </p>
+    <>
+      <PageHeader
+        eyebrow="Getting started"
+        title="How to send a case"
+        lede="Getting a case to the lab takes just a few minutes once your practice is set up."
+      />
 
-        <ol className="mt-12 space-y-6">
-          {STEPS.map((step, i) => (
-            <li key={step.title}>
-              <Card className="flex gap-4 p-5 sm:gap-5 sm:p-6">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-700 font-bold text-white">
-                  {i + 1}
-                </span>
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">{step.title}</h2>
-                  <p className="mt-1 text-sm text-slate-600">{step.body}</p>
+      <section className="py-16 sm:py-24">
+        <Container>
+          <div className="mx-auto max-w-3xl">
+            <ol className="space-y-5">
+              {STEPS.map((step, i) => (
+                <li key={step.title}>
+                  {/*
+                   * No rail between the badges: the steps used to be white
+                   * cards where a hairline was the only thing sequencing them,
+                   * and against a solid Super Blue pill it reads as a seam
+                   * rather than a connector. The numbers carry the order.
+                   */}
+                  <div className="flex gap-5 rounded-[1.75rem] bg-blue-600 p-6 text-white shadow-pill sm:gap-6 sm:p-7">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-navy-700 font-bold">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-bold">{step.title}</h2>
+                      <p className="mt-1.5 text-sm leading-relaxed text-white/85">{step.body}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </Container>
+      </section>
+
+      <section className="bg-navy-700 py-16 text-white sm:py-24">
+        <Container>
+          <div className="mx-auto max-w-3xl">
+            <SectionRule />
+            <Display className="mt-6 text-3xl sm:text-4xl">File format requirements</Display>
+            <p className="mt-5 leading-relaxed text-white/75">
+              Anything outside this list is refused at upload — the portal checks the contents of
+              each file, not just its extension.
+            </p>
+            <dl className="mt-10 grid gap-5 sm:grid-cols-3">
+              {FORMATS.map((format) => (
+                <div
+                  key={format.label}
+                  className="rounded-[1.5rem] border border-white/20 bg-white/5 p-6"
+                >
+                  <dt className="font-bold">{format.label}</dt>
+                  <dd className="mt-1.5 text-sm leading-relaxed text-white/70">{format.detail}</dd>
                 </div>
-              </Card>
-            </li>
-          ))}
-        </ol>
+              ))}
+            </dl>
+          </div>
+        </Container>
+      </section>
 
-        <Card className="mt-10 bg-brand-50">
-          <h2 className="text-lg font-semibold text-slate-900">File format requirements</h2>
-          <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-slate-600">
-            <li>STL scans: binary or ASCII, up to 100 MB per file.</li>
-            <li>Images: JPG, PNG, or WEBP, up to 10 MB each.</li>
-            <li>Documents: PDF, up to 25 MB each.</li>
-          </ul>
-        </Card>
-
-        <div className="mt-10">
-          <Link href="/contact" className={buttonClasses('primary', 'lg')}>
-            Request access
-          </Link>
-        </div>
-      </div>
-    </Container>
+      <CtaBand
+        title="Ready when you are"
+        body="Register your practice to get portal access, or ask the laboratory anything first."
+      >
+        <Link href="/register" className={ctaClasses('navy')}>
+          Register your practice
+        </Link>
+        <Link href="/contact" className={ctaClasses('blue')}>
+          Contact the lab
+        </Link>
+      </CtaBand>
+    </>
   );
 }

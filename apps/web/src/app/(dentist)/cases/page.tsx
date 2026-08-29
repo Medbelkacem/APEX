@@ -168,7 +168,7 @@ function CasesView() {
                     <Td>
                       <Link
                         href={`/cases/${row.id}`}
-                        className="font-medium text-brand-700 hover:underline"
+                        className="font-medium text-blue-700 hover:underline"
                       >
                         {row.reference}
                       </Link>

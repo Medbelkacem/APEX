@@ -6,11 +6,27 @@ import PDFDocument from 'pdfkit';
 import { AppConfig } from '../config/app.config';
 import { Dentist, Invoice, MonthlyStatement } from '../database/entities';
 
-/** Brand palette, kept in step with the web app's Tailwind `brand` scale. */
-const BRAND = '#0f766e';
-const INK = '#0f172a';
-const MUTED = '#64748b';
-const RULE = '#e2e8f0';
+/**
+ * The Apex palette, kept in step with the web app's Tailwind theme. Every
+ * value is one of the four brand colours or a tint of Oxford Navy — printed
+ * documents carry the identity as much as the site does.
+ */
+/** Super Blue — the laboratory's name and the one live link on the page. */
+const BRAND = '#0049cc';
+/** Shocking Black — the guidelines' text black. */
+const INK = '#111111';
+/** Oxford Navy at 400: secondary text that still clears AA on white (8.3:1). */
+const MUTED = '#2b4f80';
+/** Oxford Navy at 50 — hairlines and table rules. */
+const RULE = '#e8edf5';
+/** Shiny Pearl — the warm fill the brand uses in place of a grey wash. */
+const WASH = '#fff7e6';
+
+/** The laboratory's legal name, as the brand guidelines set it. */
+const LAB_NAME = 'Apex Digital Lab';
+/** The positioning line the marketing site signs off with. */
+const LAB_TAGLINE =
+  'Focused-SKU Digital Lab Partner exclusively for independent US general dentists.';
 
 const PAGE_MARGIN = 50;
 
@@ -83,12 +99,10 @@ export class PdfService {
     }
 
     const textX = logo ? PAGE_MARGIN + 46 : PAGE_MARGIN;
-    doc.fillColor(BRAND).fontSize(17).font('Helvetica-Bold').text('Dental Lab', textX, 48);
-    doc
-      .fillColor(MUTED)
-      .fontSize(9)
-      .font('Helvetica')
-      .text('Precision dental restorations', textX, 68);
+    // Name only. The laboratory has no short strapline of its own, and the
+    // positioning line the brand does own is a footer-width sentence — it goes
+    // there rather than being trimmed into something nobody wrote.
+    doc.fillColor(BRAND).fontSize(17).font('Helvetica-Bold').text(LAB_NAME, textX, 54);
 
     doc.fillColor(INK).fontSize(22).font('Helvetica-Bold').text(title, PAGE_MARGIN, 44, {
       align: 'right',
@@ -111,10 +125,15 @@ export class PdfService {
 
     doc.moveTo(PAGE_MARGIN, y).lineTo(545, y).strokeColor(RULE).lineWidth(1).stroke();
     doc
+      .fillColor(INK)
+      .fontSize(8)
+      .font('Helvetica-Bold')
+      .text(LAB_TAGLINE, PAGE_MARGIN, y + 10, { width: 495, align: 'center' });
+    doc
       .fillColor(MUTED)
       .fontSize(8)
       .font('Helvetica')
-      .text(note, PAGE_MARGIN, y + 10, { width: 495, align: 'center' });
+      .text(note, PAGE_MARGIN, y + 22, { width: 495, align: 'center' });
 
     doc.page.margins.bottom = bottomMargin;
   }
@@ -154,7 +173,7 @@ export class PdfService {
     let y = startY;
 
     // Header row
-    doc.rect(PAGE_MARGIN, y, 495, 22).fill('#f8fafc');
+    doc.rect(PAGE_MARGIN, y, 495, 22).fill(WASH);
     doc.fillColor(MUTED).fontSize(9).font('Helvetica-Bold');
     let x = PAGE_MARGIN + 8;
     columns.forEach((col) => {

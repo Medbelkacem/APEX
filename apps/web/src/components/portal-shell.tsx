@@ -41,7 +41,7 @@ function PortalNav({
             className={cn(
               // min-h-11 keeps every row at a comfortable touch target on phones.
               'flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium',
-              active ? 'bg-brand-50 text-brand-800' : 'text-slate-600 hover:bg-slate-100',
+              active ? 'bg-blue-50 text-blue-800' : 'text-slate-600 hover:bg-slate-100',
             )}
           >
             {item.label}
@@ -103,7 +103,7 @@ export function PortalShell({
     <div className="flex min-h-screen bg-slate-50">
       {/* Desktop sidebar — laptops and up. */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-        <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-6 font-bold text-brand-700">
+        <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-6 font-bold text-blue-700">
           <LogoMark className="h-8 w-8" />
           {title}
         </div>
@@ -126,7 +126,7 @@ export function PortalShell({
             aria-label="Portal navigation"
             className="relative flex h-full w-72 max-w-[85vw] flex-col bg-white shadow-xl"
           >
-            <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-4 font-bold text-brand-700">
+            <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-4 font-bold text-blue-700">
               <LogoMark className="h-8 w-8 shrink-0" />
               <span className="truncate">{title}</span>
               <button
@@ -162,7 +162,7 @@ export function PortalShell({
               ☰
             </span>
           </button>
-          <div className="truncate font-bold text-brand-700 lg:hidden">{title}</div>
+          <div className="truncate font-bold text-blue-700 lg:hidden">{title}</div>
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             <NotificationBell />
             <Button variant="outline" size="sm" onClick={logout}>

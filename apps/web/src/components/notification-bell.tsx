@@ -80,7 +80,7 @@ export function NotificationBell() {
               <button
                 type="button"
                 onClick={markAllRead}
-                className="text-xs font-medium text-brand-700 hover:underline"
+                className="text-xs font-medium text-blue-700 hover:underline"
               >
                 Mark all read
               </button>
@@ -97,7 +97,7 @@ export function NotificationBell() {
                 key={item.id}
                 className={cn(
                   'border-b border-slate-50 px-4 py-3 last:border-0',
-                  !item.readAt && 'bg-brand-50/50',
+                  !item.readAt && 'bg-blue-50/50',
                 )}
               >
                 <p className="text-sm font-medium text-slate-900">{item.subject}</p>
@@ -107,7 +107,7 @@ export function NotificationBell() {
                   <Link
                     href={`/cases/${item.relatedCaseId}`}
                     onClick={() => setOpen(false)}
-                    className="mt-1 inline-block text-xs font-medium text-brand-700 hover:underline"
+                    className="mt-1 inline-block text-xs font-medium text-blue-700 hover:underline"
                   >
                     View case
                   </Link>

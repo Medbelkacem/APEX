@@ -2,7 +2,7 @@
   "name": "@dental/api",
   "version": "1.0.0",
   "private": true,
-  "description": "Dental Lab platform — NestJS backend API.",
+  "description": "Apex Digital Lab platform — NestJS backend API.",
   "main": "dist/main.js",
   "scripts": {
     "build": "nest build",

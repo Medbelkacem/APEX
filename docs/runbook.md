@@ -1,6 +1,6 @@
 # Operations Runbook
 
-Operational procedures for the Dental Laboratory Management Platform.
+Operational procedures for the Apex Digital Lab platform.
 
 ## Local development
 
@@ -17,7 +17,7 @@ pnpm dev
 - Mailpit (captured emails): http://localhost:8025
 
 The seed creates a super-admin from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`
-(defaults: `admin@dental-lab.test` / `ChangeMe123!`).
+(defaults: `admin@apex.example` / `ChangeMe123!`).
 
 ## Database schema & indexes
 

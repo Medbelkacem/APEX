@@ -5,10 +5,10 @@ type Variant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type Size = 'sm' | 'md' | 'lg';
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-brand-700 text-white hover:bg-brand-800 disabled:bg-brand-300',
-  secondary: 'bg-slate-900 text-white hover:bg-slate-700',
-  outline: 'border border-slate-300 text-slate-800 hover:bg-slate-100',
-  ghost: 'text-slate-700 hover:bg-slate-100',
+  primary: 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-200',
+  secondary: 'bg-navy-700 text-white hover:bg-navy-800',
+  outline: 'border border-navy-100 text-navy-700 hover:bg-navy-50',
+  ghost: 'text-navy-600 hover:bg-navy-50',
 };
 
 const sizes: Record<Size, string> = {

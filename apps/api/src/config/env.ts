@@ -75,8 +75,8 @@ export const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional().default(''),
   SMTP_SECURE: zBool(false),
   SENDGRID_API_KEY: z.string().optional().default(''),
-  MAIL_FROM_NAME: z.string().default('Dental Lab'),
-  MAIL_FROM_ADDRESS: z.string().email().default('no-reply@dental-lab.test'),
+  MAIL_FROM_NAME: z.string().default('Apex Digital Lab'),
+  MAIL_FROM_ADDRESS: z.string().email().default('no-reply@apex.example'),
 
   // Storage
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),

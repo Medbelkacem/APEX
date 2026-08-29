@@ -18,8 +18,9 @@ export interface RegisterInput {
   firstName: string;
   lastName: string;
   phone?: string | null;
-  clinicName?: string | null;
-  clinicAddress?: string | null;
+  /** Required by the API — self-registration must identify the practice. */
+  clinicName: string;
+  clinicAddress: string;
 }
 
 export const authApi = {

@@ -114,7 +114,7 @@ export default function AdminDentistDetailPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/admin/dentists" className="text-sm text-slate-500 hover:text-brand-700">
+        <Link href="/admin/dentists" className="text-sm text-slate-500 hover:text-blue-700">
           ← Back to dentists
         </Link>
       </div>
@@ -354,7 +354,7 @@ export default function AdminDentistDetailPage() {
           <h2 className="text-lg font-semibold text-slate-900">Recent cases</h2>
           <Link
             href={`/admin/cases?dentistId=${id}`}
-            className="text-sm font-medium text-brand-700 hover:underline"
+            className="text-sm font-medium text-blue-700 hover:underline"
           >
             All cases
           </Link>
@@ -384,7 +384,7 @@ export default function AdminDentistDetailPage() {
                       <Td>
                         <Link
                           href={`/admin/cases/${row.id}`}
-                          className="font-medium text-brand-700 hover:underline"
+                          className="font-medium text-blue-700 hover:underline"
                         >
                           {row.reference}
                         </Link>
@@ -418,7 +418,7 @@ export default function AdminDentistDetailPage() {
           <h2 className="text-lg font-semibold text-slate-900">Recent invoices</h2>
           <Link
             href={`/admin/invoices?dentistId=${id}`}
-            className="text-sm font-medium text-brand-700 hover:underline"
+            className="text-sm font-medium text-blue-700 hover:underline"
           >
             All invoices
           </Link>
@@ -448,7 +448,7 @@ export default function AdminDentistDetailPage() {
                       <Td>
                         <Link
                           href={`/admin/invoices/${invoice.id}`}
-                          className="font-medium text-brand-700 hover:underline"
+                          className="font-medium text-blue-700 hover:underline"
                         >
                           {invoice.number}
                         </Link>

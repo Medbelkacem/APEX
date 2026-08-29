@@ -21,7 +21,7 @@
  */
 
 const CACHE_VERSION = 'v1';
-const CACHE_NAME = `dental-lab-shell-${CACHE_VERSION}`;
+const CACHE_NAME = `apex-shell-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline';
 
 /** Public, data-free assets worth having before the network is lost. */
