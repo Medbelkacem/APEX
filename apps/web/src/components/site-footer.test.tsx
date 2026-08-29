@@ -93,7 +93,7 @@ describe('SiteFooter copy', () => {
       ['Main', '/#main'],
       ['problems', '/#problems'],
       ['About', '/#about'],
-      ['Services', '/#services'],
+      ['Solutions', '/#services'],
       ['contact', '/#contact'],
     ]);
   });
@@ -110,7 +110,7 @@ describe('SiteFooter copy', () => {
     ).toEqual([
       ['Home', '/'],
       ['About', '/about'],
-      ['Services', '/services'],
+      ['Solutions', '/services'],
       ['How to send a case', '/how-to-send-a-case'],
       ['Contact', '/contact'],
     ]);

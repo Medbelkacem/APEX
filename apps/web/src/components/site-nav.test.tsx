@@ -47,7 +47,7 @@ describe('SiteNavLinks', () => {
       'Main',
       'problems',
       'About',
-      'Services',
+      'Solutions',
       'contact',
     ]);
   });

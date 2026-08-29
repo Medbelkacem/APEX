@@ -17,15 +17,16 @@ import { usePathname } from 'next/navigation';
  * consistent across each surface. Shipping the design's anchors everywhere
  * would satisfy the mockup by making three of those five unreachable.
  *
- * So the landing page gets the design's header verbatim, and every other
- * public page gets the routes. Each page carries the navigation that can
- * actually work on it.
+ * So the landing page gets the design's header, and every other public page
+ * gets the routes. Each page carries the navigation that can actually work on
+ * it. The one word that departs from the mockup is "Solutions", which the
+ * design labels "Services" and the client has since renamed.
  */
 export const LANDING_NAV = [
   { href: '/#main', label: 'Main' },
   { href: '/#problems', label: 'problems' },
   { href: '/#about', label: 'About' },
-  { href: '/#services', label: 'Services' },
+  { href: '/#services', label: 'Solutions' },
   { href: '/#contact', label: 'contact' },
 ];
 
@@ -33,7 +34,7 @@ export const LANDING_NAV = [
 export const PAGE_NAV = [
   { href: '/', label: 'Home' },
   { href: '/about', label: 'About' },
-  { href: '/services', label: 'Services' },
+  { href: '/services', label: 'Solutions' },
   { href: '/how-to-send-a-case', label: 'How to send a case' },
   { href: '/contact', label: 'Contact' },
 ];
