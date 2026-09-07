@@ -2,7 +2,7 @@
   "name": "apex-platform",
   "version": "1.0.0",
   "private": true,
-  "description": "Apex Digital Lab platform — marketing site, dentist portal, admin dashboard (monorepo).",
+  "description": "Apex Digital Lab platform \u2014 marketing site, dentist portal, admin dashboard (monorepo).",
   "packageManager": "pnpm@11.3.0",
   "engines": {
     "node": ">=20.0.0"
