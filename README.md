@@ -172,6 +172,12 @@ to CSRF and are not blocked. The signature-verified Stripe webhook is exempt.
 **Money** crosses the wire as decimal strings and is computed in integer cents,
 so totals never drift through binary floating point.
 
+**Production** refuses to boot with the template `JWT_SECRET` or with
+`COOKIE_SECURE=false`, serves the Swagger UI only when `API_DOCS_ENABLED=true`,
+and needs `TRUST_PROXY` set behind a reverse proxy. The web app sends a
+Content-Security-Policy and the usual hardening headers on every response
+(`apps/web/security-headers.mjs`). The checklist is in `docs/runbook.md`.
+
 ## Branding
 
 The brand mark lives in `docs/brand/logo-source.jpg`. Derived assets

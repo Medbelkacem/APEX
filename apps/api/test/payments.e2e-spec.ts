@@ -12,6 +12,7 @@
  */
 import { INestApplication } from '@nestjs/common';
 import { InvoiceStatus } from '@dental/shared-types';
+import { AuditLog } from '../src/database/entities/audit-log.entity';
 import { Invoice } from '../src/database/entities/invoice.entity';
 import { SETTING_KEYS, SettingsService } from '../src/modules/settings/settings.service';
 import { createTestApp, TestApp } from './support/app';
@@ -22,7 +23,7 @@ import { api, login, Session } from './support/http';
 // Jest hoists `jest.mock` above the imports; referencing these from the factory
 // is allowed because the names begin with `mock`, and the factory only runs
 // when `stripe` is first required, by which point they are initialised.
-const mockPaymentIntents = { create: jest.fn(), retrieve: jest.fn() };
+const mockPaymentIntents = { create: jest.fn(), retrieve: jest.fn(), cancel: jest.fn() };
 const mockWebhooks = { constructEvent: jest.fn() };
 const mockRefunds = { create: jest.fn() };
 
@@ -35,7 +36,11 @@ jest.mock('stripe', () => ({
   })),
 }));
 
-const WEBHOOK_SECRET = 'whsec_test_secret';
+// Shaped like the real thing: the service refuses anything that does not look
+// like a key Stripe would issue, so the placeholders in `.env.example` cannot
+// pass for configuration.
+const SECRET_KEY = `sk_test_${'4eC39HqLyjWDarjtT1zdp7dc'}`;
+const WEBHOOK_SECRET = `whsec_${'a'.repeat(32)}`;
 
 describe('Payments (e2e)', () => {
   let ctx: TestApp;
@@ -61,6 +66,9 @@ describe('Payments (e2e)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Cancelling a superseded intent is fire-and-forget in the service; the
+    // real SDK resolves, and so must the stand-in.
+    mockPaymentIntents.cancel.mockResolvedValue({ status: 'canceled' });
     await truncateAll(ctx.connection);
 
     catalog = await fixtures.catalog();
@@ -70,7 +78,7 @@ describe('Payments (e2e)', () => {
     adminSession = await login(app, admin.email);
 
     // Without real-looking keys the service refuses to build a client at all.
-    await settings.set(SETTING_KEYS.stripeSecretKey, 'sk_test_realistic');
+    await settings.set(SETTING_KEYS.stripeSecretKey, SECRET_KEY);
     await settings.set(SETTING_KEYS.stripePublishableKey, 'pk_test_realistic');
     await settings.set(SETTING_KEYS.stripeWebhookSecret, WEBHOOK_SECRET);
   });
@@ -148,6 +156,7 @@ describe('Payments (e2e)', () => {
       });
       expect(mockPaymentIntents.create).toHaveBeenCalledWith(
         expect.objectContaining({ amount: 10_000, currency: 'usd' }),
+        expect.objectContaining({ idempotencyKey: expect.stringContaining(inv.id) }),
       );
     });
 
@@ -163,6 +172,7 @@ describe('Payments (e2e)', () => {
         expect.objectContaining({
           metadata: expect.objectContaining({ invoiceId: inv.id }),
         }),
+        expect.anything(),
       );
     });
 
@@ -188,6 +198,7 @@ describe('Payments (e2e)', () => {
         id: 'pi_first',
         client_secret: 'cs_first',
         amount: 10_000,
+        currency: 'usd',
         status: 'requires_payment_method',
       });
 
@@ -197,6 +208,63 @@ describe('Payments (e2e)', () => {
 
       expect(res.body.clientSecret).toBe('cs_first');
       expect(mockPaymentIntents.create).toHaveBeenCalledTimes(1);
+      expect(mockPaymentIntents.cancel).not.toHaveBeenCalled();
+    });
+
+    it('settles from an intent that already succeeded instead of charging again', async () => {
+      const inv = await invoice('issued');
+      mockPaymentIntents.create.mockResolvedValue({ id: 'pi_done', client_secret: 'cs_done' });
+      await api(app)
+        .post(`/api/invoices/${inv.id}/payment-intent`)
+        .set('Cookie', dentistSession.cookie);
+
+      // The card was charged; the webhook has not arrived yet. The invoice
+      // still reads "issued", so the page shows the Pay button again.
+      mockPaymentIntents.retrieve.mockResolvedValue({
+        id: 'pi_done',
+        status: 'succeeded',
+        amount: 10_000,
+        amount_received: 10_000,
+        currency: 'usd',
+        metadata: { invoiceId: inv.id },
+      });
+
+      const res = await api(app)
+        .post(`/api/invoices/${inv.id}/payment-intent`)
+        .set('Cookie', dentistSession.cookie);
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/already been received/i);
+      // No second intent — and the payment Stripe reports is applied now,
+      // rather than waiting on an event that may be minutes away.
+      expect(mockPaymentIntents.create).toHaveBeenCalledTimes(1);
+      const stored = await reload(inv.id);
+      expect(stored.status).toBe(InvoiceStatus.PAID);
+      expect(stored.stripePaymentIntentId).toBe('pi_done');
+    });
+
+    it('refuses a new intent while the previous payment is still processing', async () => {
+      const inv = await invoice('issued');
+      mockPaymentIntents.create.mockResolvedValue({ id: 'pi_slow', client_secret: 'cs_slow' });
+      await api(app)
+        .post(`/api/invoices/${inv.id}/payment-intent`)
+        .set('Cookie', dentistSession.cookie);
+
+      mockPaymentIntents.retrieve.mockResolvedValue({
+        id: 'pi_slow',
+        status: 'processing',
+        amount: 10_000,
+        currency: 'usd',
+      });
+
+      const res = await api(app)
+        .post(`/api/invoices/${inv.id}/payment-intent`)
+        .set('Cookie', dentistSession.cookie);
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/being processed/i);
+      expect(mockPaymentIntents.create).toHaveBeenCalledTimes(1);
+      expect((await reload(inv.id)).status).toBe(InvoiceStatus.ISSUED);
     });
 
     it('creates a fresh intent when the stored one no longer matches the amount', async () => {
@@ -210,6 +278,7 @@ describe('Payments (e2e)', () => {
         id: 'pi_first',
         client_secret: 'cs_first',
         amount: 999, // invoice is 10,000 minor units
+        currency: 'usd',
         status: 'requires_payment_method',
       });
       mockPaymentIntents.create.mockResolvedValue({ id: 'pi_second', client_secret: 'cs_second' });
@@ -220,6 +289,10 @@ describe('Payments (e2e)', () => {
 
       expect(res.body.clientSecret).toBe('cs_second');
       expect(mockPaymentIntents.create).toHaveBeenCalledTimes(2);
+      // The superseded intent is still payable from any tab holding its client
+      // secret, so it is closed rather than left as a second way to pay.
+      expect(mockPaymentIntents.cancel).toHaveBeenCalledWith('pi_first');
+      expect((await reload(inv.id)).stripePaymentIntentId).toBe('pi_second');
     });
 
     it('refuses an invoice that is already paid', async () => {
@@ -271,6 +344,9 @@ describe('Payments (e2e)', () => {
     });
 
     it('reports clearly when Stripe has not been configured', async () => {
+      // With no key in Platform Settings the service falls back to the
+      // environment — which, in a fresh checkout, holds the `.env.example`
+      // filler. That must read as unconfigured, not as a key to try at Stripe.
       await settings.set(SETTING_KEYS.stripeSecretKey, null);
       const inv = await invoice('issued');
 
@@ -280,7 +356,23 @@ describe('Payments (e2e)', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/not configured/i);
+      expect(mockPaymentIntents.create).not.toHaveBeenCalled();
     });
+
+    it.each(['sk_test_xxx', 'sk_test_placeholder', 'sk_live_short', 'not-a-key'])(
+      'treats the filler %p as no key at all',
+      async (filler) => {
+        await settings.set(SETTING_KEYS.stripeSecretKey, filler);
+        const inv = await invoice('issued');
+
+        const res = await api(app)
+          .post(`/api/invoices/${inv.id}/payment-intent`)
+          .set('Cookie', dentistSession.cookie);
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/not configured/i);
+      },
+    );
   });
 
   describe('POST /api/payments/webhook', () => {
@@ -293,6 +385,16 @@ describe('Payments (e2e)', () => {
       const res = await send({ type: 'payment_intent.succeeded' });
 
       expect(res.status).toBe(400);
+      expect(mockWebhooks.constructEvent).not.toHaveBeenCalled();
+    });
+
+    it('refuses to verify against a filler webhook secret', async () => {
+      await settings.set(SETTING_KEYS.stripeWebhookSecret, 'whsec_xxx');
+
+      const res = await send({ type: 'payment_intent.succeeded' }, 'sig_valid');
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/not configured/i);
       expect(mockWebhooks.constructEvent).not.toHaveBeenCalled();
     });
 
@@ -346,6 +448,30 @@ describe('Payments (e2e)', () => {
       await send({}, 'sig_valid');
 
       expect((await reload(inv.id)).status).toBe(InvoiceStatus.PAID);
+    });
+
+    it('flags a second successful intent against an invoice that is already paid', async () => {
+      const inv = await invoice('issued');
+      // The lab recorded a cheque; the dentist then also paid online.
+      await api(app).post(`/api/invoices/${inv.id}/mark-paid`).set('Cookie', adminSession.cookie);
+      const paidAt = (await reload(inv.id)).paidAt;
+
+      mockWebhooks.constructEvent.mockReturnValue(succeeded('pi_twice', inv));
+      const res = await send({}, 'sig_valid');
+
+      // Acknowledged — retrying cannot help — and the invoice is untouched.
+      expect(res.status).toBe(200);
+      const stored = await reload(inv.id);
+      expect(stored.status).toBe(InvoiceStatus.PAID);
+      expect(stored.paidAt).toEqual(paidAt);
+      expect(stored.stripePaymentIntentId).toBeNull();
+
+      // But the money collected twice is on record, for someone to refund.
+      const flagged = await ctx.dataSource
+        .getRepository(AuditLog)
+        .findOneBy({ action: 'payment.duplicate_detected', entityId: inv.id });
+      expect(flagged).not.toBeNull();
+      expect(flagged!.metadata).toMatchObject({ duplicateIntent: 'pi_twice' });
     });
 
     it('tolerates a redelivered success event', async () => {

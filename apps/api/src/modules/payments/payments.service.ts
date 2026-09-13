@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { AuthenticatedUser, InvoiceStatus } from '@dental/shared-types';
 import { Invoice } from '../../database/entities';
+import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { SettingsService } from '../settings/settings.service';
 
@@ -11,6 +12,33 @@ export interface PaymentIntentResponse {
   amount: string;
   currency: string;
 }
+
+/**
+ * The shapes of the credentials Stripe actually issues. `.env.example` ships
+ * `sk_test_xxx`-style fillers, and the config layer's own fallbacks are
+ * `*_placeholder`; neither is a key, and treating one as configured only moves
+ * the failure to Stripe's side of the wire — an "Invalid API key" that reaches
+ * the dentist as a 500 on the Pay button instead of as a plain "not set up".
+ * Real keys are far longer than the floor here; the floor exists only to
+ * refuse the fillers.
+ */
+const SECRET_KEY_SHAPE = /^[sr]k_(test|live)_[A-Za-z0-9]{16,}$/;
+const WEBHOOK_SECRET_SHAPE = /^whsec_[A-Za-z0-9]{16,}$/;
+
+export function isConfiguredStripeSecretKey(value: string | null | undefined): boolean {
+  return typeof value === 'string' && SECRET_KEY_SHAPE.test(value);
+}
+
+export function isConfiguredStripeWebhookSecret(value: string | null | undefined): boolean {
+  return typeof value === 'string' && WEBHOOK_SECRET_SHAPE.test(value);
+}
+
+/** Intent states in which the dentist can still complete the same payment. */
+const PAYABLE_STATES: ReadonlyArray<Stripe.PaymentIntent.Status> = [
+  'requires_payment_method',
+  'requires_confirmation',
+  'requires_action',
+];
 
 /**
  * Stripe integration for invoice settlement. Credentials are resolved at call
@@ -24,14 +52,22 @@ export class PaymentsService {
   constructor(
     private readonly invoices: InvoicesService,
     private readonly settings: SettingsService,
+    private readonly audit: AuditService,
   ) {}
 
   private async client(): Promise<{ stripe: Stripe; publishableKey: string; webhookSecret: string }> {
     const config = await this.settings.stripeConfig();
-    if (!config.secretKey || config.secretKey.includes('placeholder')) {
+    if (!isConfiguredStripeSecretKey(config.secretKey)) {
       throw new BadRequestException(
         'Stripe is not configured — a super admin must set the API keys in Platform Settings',
       );
+    }
+    const keyMode = config.secretKey.includes('_live_') ? 'live' : 'test';
+    if (config.mode !== keyMode) {
+      // Not fatal — the key decides which Stripe environment is charged — but a
+      // platform that believes it is live while holding a test key (or the
+      // reverse) is misconfigured in a way somebody should hear about.
+      this.logger.warn(`Stripe mode is set to "${config.mode}" but the secret key is a ${keyMode} key`);
     }
     return {
       stripe: new Stripe(config.secretKey, { apiVersion: '2024-06-20' }),
@@ -60,40 +96,83 @@ export class PaymentsService {
 
     const { stripe, publishableKey } = await this.client();
     const amountInMinorUnits = Math.round(Number(invoice.total) * 100);
+    const currency = invoice.currency.toLowerCase();
     if (amountInMinorUnits <= 0) {
       throw new BadRequestException('This invoice has no outstanding amount');
     }
 
-    if (invoice.stripePaymentIntentId) {
-      const existing = await stripe.paymentIntents
-        .retrieve(invoice.stripePaymentIntentId)
-        .catch(() => null);
-      // Reuse only while the intent is still payable and for the same amount.
-      if (
-        existing &&
-        existing.client_secret &&
-        existing.amount === amountInMinorUnits &&
-        ['requires_payment_method', 'requires_confirmation', 'requires_action'].includes(
-          existing.status,
-        )
-      ) {
-        return {
-          clientSecret: existing.client_secret,
-          publishableKey,
-          amount: invoice.total,
-          currency: invoice.currency,
-        };
+    const previous = invoice.stripePaymentIntentId;
+    if (previous) {
+      const existing = await stripe.paymentIntents.retrieve(previous).catch(() => null);
+
+      if (existing) {
+        // The money has already moved and only the webhook is outstanding.
+        // Between the card being charged and that event landing, the invoice
+        // still reads "issued" — so a dentist who reloads sees the Pay button
+        // again, and minting a fresh intent here is exactly how they would be
+        // charged twice. Apply the payment from Stripe's own record instead.
+        if (existing.status === 'succeeded') {
+          await this.settleFromIntent(existing);
+          throw new BadRequestException(
+            'A payment for this invoice has already been received — it will show as paid shortly',
+          );
+        }
+        if (existing.status === 'processing') {
+          throw new BadRequestException(
+            'A payment for this invoice is still being processed — please wait for it to complete',
+          );
+        }
+
+        // Reuse only while the intent is still payable, and for the same money.
+        if (
+          existing.client_secret &&
+          existing.amount === amountInMinorUnits &&
+          existing.currency?.toLowerCase() === currency &&
+          PAYABLE_STATES.includes(existing.status)
+        ) {
+          return {
+            clientSecret: existing.client_secret,
+            publishableKey,
+            amount: invoice.total,
+            currency: invoice.currency,
+          };
+        }
+
+        // A payable intent that no longer matches the invoice must not be left
+        // open: a tab still holding its client secret could otherwise complete
+        // it after the replacement has been paid. Cancellation is best effort —
+        // an intent that has meanwhile moved on cannot be cancelled, and that is
+        // not a reason to refuse the dentist a way to pay.
+        if (PAYABLE_STATES.includes(existing.status)) {
+          try {
+            await stripe.paymentIntents.cancel(existing.id);
+          } catch (err) {
+            this.logger.warn(
+              `Could not cancel superseded intent ${existing.id} for invoice ${invoice.number}: ${
+                err instanceof Error ? err.message : 'unknown'
+              }`,
+            );
+          }
+        }
       }
     }
 
-    const intent = await stripe.paymentIntents.create({
-      amount: amountInMinorUnits,
-      currency: invoice.currency.toLowerCase(),
-      automatic_payment_methods: { enabled: true },
-      description: `Invoice ${invoice.number}`,
-      // The webhook is the source of truth for settlement, so carry the ids.
-      metadata: { invoiceId: invoice.id, invoiceNumber: invoice.number },
-    });
+    const intent = await stripe.paymentIntents.create(
+      {
+        amount: amountInMinorUnits,
+        currency,
+        automatic_payment_methods: { enabled: true },
+        description: `Invoice ${invoice.number}`,
+        // The webhook is the source of truth for settlement, so carry the ids.
+        metadata: { invoiceId: invoice.id, invoiceNumber: invoice.number },
+      },
+      {
+        // Two tabs clicking Pay at once would otherwise each create an intent,
+        // both payable. With one key per (invoice, amount, predecessor) Stripe
+        // hands the second caller the first caller's intent instead.
+        idempotencyKey: `pi:${invoice.id}:${amountInMinorUnits}:${currency}:${previous ?? 'none'}`,
+      },
+    );
 
     await this.invoices.attachPaymentIntent(invoice.id, intent.id);
 
@@ -111,7 +190,7 @@ export class PaymentsService {
    */
   async handleWebhook(rawBody: Buffer, signature: string): Promise<{ received: boolean }> {
     const { stripe, webhookSecret } = await this.client();
-    if (!webhookSecret || webhookSecret.includes('placeholder')) {
+    if (!isConfiguredStripeWebhookSecret(webhookSecret)) {
       throw new BadRequestException('Stripe webhook secret is not configured');
     }
 
@@ -182,10 +261,42 @@ export class PaymentsService {
       return;
     }
 
+    if (invoice.status === InvoiceStatus.PAID) {
+      // The same intent again is a redelivery. A *different* one is money that
+      // was collected twice for the same invoice — through a second intent, or
+      // online after the lab had already recorded an offline payment — and the
+      // only remedy is a refund at Stripe, so it has to be loud and on record.
+      if (invoice.stripePaymentIntentId !== intent.id) {
+        await this.flagDuplicatePayment(invoice, intent);
+      }
+      return;
+    }
+
     if (!this.collectedInFull(intent, invoice)) return;
 
     await this.invoices.markPaid(invoice.id, { stripePaymentIntentId: intent.id });
     this.logger.log(`Invoice ${invoice.number} settled via Stripe intent ${intent.id}`);
+  }
+
+  private async flagDuplicatePayment(invoice: Invoice, intent: Stripe.PaymentIntent): Promise<void> {
+    this.logger.error(
+      `Invoice ${invoice.number} is already paid${
+        invoice.stripePaymentIntentId ? ` by intent ${invoice.stripePaymentIntentId}` : ' offline'
+      }, yet intent ${intent.id} also succeeded for ${intent.amount_received ?? 'an unreported amount'} ` +
+        `${intent.currency ?? ''} — a duplicate charge that needs refunding at Stripe`,
+    );
+    await this.audit.record({
+      action: 'payment.duplicate_detected',
+      entityType: 'invoice',
+      entityId: invoice.id,
+      metadata: {
+        number: invoice.number,
+        paidBy: invoice.stripePaymentIntentId,
+        duplicateIntent: intent.id,
+        amountReceived: intent.amount_received ?? null,
+        currency: intent.currency ?? null,
+      },
+    });
   }
 
   /**

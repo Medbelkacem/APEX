@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Container } from '@/components/ui/card';
 import { LogoMark } from '@/components/ui/logo';
@@ -98,6 +99,22 @@ export function SiteFooter() {
             <p className="text-white/60">
               Focused-SKU Digital Lab Partner exclusively for independent US general dentists.
             </p>
+          </div>
+
+          {/*
+           * The build credit, last line on the page. The mark is decorative —
+           * the name is already in the sentence beside it, so giving the image
+           * alt text would have a screen reader say "PROLYNC" twice.
+           */}
+          <div className="mt-6 flex items-center justify-center gap-2 text-sm text-white/60">
+            <Image
+              src="/brand/prolync.png"
+              alt=""
+              width={433}
+              height={717}
+              className="h-6 w-auto"
+            />
+            <span>© {year} PROLYNC. All rights reserved.</span>
           </div>
         </div>
       </Container>

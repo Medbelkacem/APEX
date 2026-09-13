@@ -14,10 +14,21 @@ const zBool = (def: boolean) =>
     .default(def);
 
 /**
+ * Secrets that ship in templates and docs. Any of them in a production
+ * environment means the deployment was never given a secret of its own.
+ */
+const WELL_KNOWN_SECRETS = new Set([
+  'change-me-in-production-please-use-a-long-random-string',
+  'insecure-dev-secret-change-me',
+  'test-secret-value-at-least-16-chars',
+  'ci-test-secret-value-please-change',
+]);
+
+/**
  * Central environment schema. The application refuses to boot if a required
  * variable is missing or malformed — fail fast, never run half-configured.
  */
-export const envSchema = z.object({
+export const envObjectSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   // App
@@ -25,6 +36,15 @@ export const envSchema = z.object({
   API_URL: z.string().url().default('http://localhost:4000'),
   WEB_URL: z.string().url().default('http://localhost:3000'),
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
+  // How many reverse proxies sit in front of the API, or which ones to trust
+  // (Express's `trust proxy` setting: a hop count, `loopback`, a CIDR list, or
+  // `true`). Unset means none — the socket address is the client. Set it in
+  // production, or every client behind the proxy shares one rate-limit bucket
+  // and the audit trail records the proxy instead of the caller.
+  TRUST_PROXY: z.string().optional().default(''),
+  // The Swagger UI at /docs is on by default outside production. It maps the
+  // whole API for anyone who can reach it, so in production it is opt-in.
+  API_DOCS_ENABLED: zBool(false),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   SENTRY_DSN: z.string().optional(),
 
@@ -93,6 +113,32 @@ export const envSchema = z.object({
   // Platform defaults
   DEFAULT_CURRENCY: z.string().length(3).default('USD'),
   DEFAULT_TIMEZONE: z.string().default('UTC'),
+});
+
+/**
+ * Production has requirements that a developer's laptop does not. They are
+ * enforced here, at boot, because each of them is a silent failure at runtime:
+ * a template JWT secret signs sessions anyone can forge, and an insecure cookie
+ * flag hands the session to whoever is on the network path.
+ */
+export const envSchema = envObjectSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV !== 'production') return;
+
+  if (env.JWT_SECRET.length < 32 || WELL_KNOWN_SECRETS.has(env.JWT_SECRET)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['JWT_SECRET'],
+      message:
+        'must be a random secret of at least 32 characters in production — the template value signs sessions anyone can forge',
+    });
+  }
+  if (!env.COOKIE_SECURE) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['COOKIE_SECURE'],
+      message: 'must be true in production — session cookies would otherwise be sent over plain HTTP',
+    });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

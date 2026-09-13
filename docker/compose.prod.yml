@@ -1,0 +1,108 @@
+# Production stack for the Apex Digital Lab platform.
+#
+# Differences from the root docker-compose.yml (which is local development
+# only): Mongo and Redis publish no ports and are reachable solely on the
+# internal network, Mailpit is gone because production sends through a real
+# SMTP provider, the web image is built with the public origins baked in, and
+# Caddy is the only container exposed to the internet.
+#
+# Run from the repository root:
+#   docker compose -f docker/compose.prod.yml --env-file .env up -d --build
+name: apex
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: apex-mongo
+    restart: unless-stopped
+    # A single-node replica set. The app's multi-document transactions
+    # (case+history, invoice+line-items, reference numbering) are rejected by a
+    # standalone mongod, so this is required, not a preference.
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --port 27017 --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: apex-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+    container_name: apex-api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - ../.env
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongo:27017/dental?directConnection=true
+      REDIS_URL: redis://redis:6379
+      # Caddy is the single proxy in front of this process. Without it every
+      # caller shares Caddy's address for rate limiting and the audit trail.
+      TRUST_PROXY: 1
+    volumes:
+      - ../storage:/app/storage
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+      # Baked in at build time, not read at runtime — these land in the client
+      # bundle, the CSP's connect-src, robots.txt, the sitemap and
+      # metadataBase. Changing them requires a rebuild, not a restart.
+      args:
+        NEXT_PUBLIC_API_URL: https://${SITE_DOMAIN:-apex-dental-solution.com}
+        NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN:-apex-dental-solution.com}
+    container_name: apex-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    env_file:
+      - ../.env
+    environment:
+      NODE_ENV: production
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: apex-caddy
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-apex-dental-solution.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and ACME account keys. Losing this volume means
+      # re-issuing certificates, which Let's Encrypt rate-limits.
+      - caddy-data:/data
+      - caddy-config:/config
+      - caddy-logs:/var/log/caddy
+
+volumes:
+  mongo-data:
+  redis-data:
+  caddy-data:
+  caddy-config:
+  caddy-logs:
