@@ -59,3 +59,6 @@ docker/data/
 # Design source handed over for the rebrand (brand guidelines, landing page
 # mockup). Reference material rather than build input, and heavy — kept local.
 /*.pdf
+
+# Backup archives from scripts/backup.sh — never commit
+backups/

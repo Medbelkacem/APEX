@@ -1,0 +1,35 @@
+# TLS termination and routing for the Apex Digital Lab platform.
+#
+# Both apps are served from ONE origin, which is what keeps the rest of the
+# configuration simple: the API is mounted under /api (main.ts sets the global
+# prefix), the web app claims no /api routes of its own, and the browser client
+# already composes its calls as `${NEXT_PUBLIC_API_URL}/api/...`. Same origin
+# means no CORS preflights and session cookies that stay host-only instead of
+# being shared with every subdomain.
+#
+# Caddy obtains and renews Let's Encrypt certificates on its own. That needs
+# the A record resolving to this server BEFORE first start, because the
+# HTTP-01 challenge is answered on port 80.
+
+www.{$SITE_DOMAIN:apex-dental-solution.com} {
+	redir https://{$SITE_DOMAIN:apex-dental-solution.com}{uri} permanent
+}
+
+{$SITE_DOMAIN:apex-dental-solution.com} {
+	encode zstd gzip
+
+	# The API. Stripe webhook signatures are verified against the raw body,
+	# so nothing here may rewrite or re-encode the request payload.
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+
+	# Everything else is the Next.js server.
+	handle {
+		reverse_proxy web:3000
+	}
+
+	log {
+		output file /var/log/caddy/access.log
+	}
+}
