@@ -71,6 +71,12 @@ services:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
+      # web and api are separate origins here (no reverse proxy in front of
+      # this local stack), unlike production — so, unlike the Dockerfile's own
+      # (same-origin) default, these need to be absolute.
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+        NEXT_PUBLIC_SITE_URL: http://localhost:3000
     container_name: dental-web
     restart: unless-stopped
     depends_on:

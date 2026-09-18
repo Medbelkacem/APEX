@@ -116,10 +116,56 @@ export const envObjectSchema = z.object({
 });
 
 /**
+ * A hostname that can only ever mean "this machine" or a private network —
+ * never reachable from a visitor's browser or phone. Seeing one of these in a
+ * production URL means the deployment inherited a local-dev default instead
+ * of being given its real origin.
+ */
+function isLocalOrPrivateHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === 'localhost' ||
+    host === '0.0.0.0' ||
+    host.endsWith('.localhost') ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
+}
+
+/** Flags a URL that is unusable from the public internet, or not HTTPS. */
+function checkPublicHttpsUrl(ctx: z.RefinementCtx, path: string[], value: string): void {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return; // Already rejected by z.string().url() on the field itself.
+  }
+  if (isLocalOrPrivateHost(url.hostname)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path,
+      message: `must be the real public origin in production, not "${value}" — a loopback/private address is unreachable from an actual browser and (on Chrome/Android) triggers a Private Network Access prompt instead of working`,
+    });
+    return;
+  }
+  if (url.protocol !== 'https:') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path,
+      message: `must be an https:// URL in production, not "${value}" — plain HTTP is mixed content behind TLS and never sends session cookies marked Secure`,
+    });
+  }
+}
+
+/**
  * Production has requirements that a developer's laptop does not. They are
  * enforced here, at boot, because each of them is a silent failure at runtime:
- * a template JWT secret signs sessions anyone can forge, and an insecure cookie
- * flag hands the session to whoever is on the network path.
+ * a template JWT secret signs sessions anyone can forge, an insecure cookie
+ * flag hands the session to whoever is on the network path, and a localhost
+ * URL left over from `.env.example` quietly points the API — or, baked into
+ * the web build, the browser itself — at a machine nobody outside can reach.
  */
 export const envSchema = envObjectSchema.superRefine((env, ctx) => {
   if (env.NODE_ENV !== 'production') return;
@@ -136,9 +182,32 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['COOKIE_SECURE'],
-      message: 'must be true in production — session cookies would otherwise be sent over plain HTTP',
+      message:
+        'must be true in production — session cookies would otherwise be sent over plain HTTP',
     });
   }
+  if (isLocalOrPrivateHost(env.COOKIE_DOMAIN)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['COOKIE_DOMAIN'],
+      message: `must be the real site domain in production, not "${env.COOKIE_DOMAIN}" — a browser never accepts a cookie scoped to a domain other than the one it is talking to`,
+    });
+  }
+
+  checkPublicHttpsUrl(ctx, ['API_URL'], env.API_URL);
+  checkPublicHttpsUrl(ctx, ['WEB_URL'], env.WEB_URL);
+
+  const origins = env.CORS_ORIGINS.split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (origins.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['CORS_ORIGINS'],
+      message: 'must not be empty in production',
+    });
+  }
+  origins.forEach((origin, i) => checkPublicHttpsUrl(ctx, ['CORS_ORIGINS', String(i)], origin));
 });
 
 export type Env = z.infer<typeof envSchema>;
