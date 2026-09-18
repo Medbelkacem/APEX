@@ -61,8 +61,16 @@ const orNull = (value?: string) => {
   return trimmed ? trimmed : null;
 };
 
+/**
+ * A free-tier Render service spins down when idle and takes anywhere up to
+ * a minute to cold-start on the next request. Below this, a pending request
+ * just looks like normal submit latency; past it, silence reads as broken.
+ */
+const WAKING_UP_HINT_MS = 4000;
+
 export function RegisterForm() {
   const [submittedTo, setSubmittedTo] = useState<string | null>(null);
+  const [wakingUp, setWakingUp] = useState(false);
   const {
     register,
     handleSubmit,
@@ -71,6 +79,7 @@ export function RegisterForm() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   async function onSubmit(values: FormValues) {
+    const wakeTimer = setTimeout(() => setWakingUp(true), WAKING_UP_HINT_MS);
     try {
       await authApi.register({
         email: values.email.trim(),
@@ -86,6 +95,9 @@ export function RegisterForm() {
       const message =
         err instanceof ApiError ? err.message : 'Unable to register. Please try again.';
       setError('root', { message });
+    } finally {
+      clearTimeout(wakeTimer);
+      setWakingUp(false);
     }
   }
 
@@ -125,6 +137,12 @@ export function RegisterForm() {
       </div>
 
       {errors.root && <Alert tone="error">{errors.root.message}</Alert>}
+      {isSubmitting && wakingUp && (
+        <Alert tone="info">
+          Server is waking up, please wait&hellip; the first request after a quiet spell can take
+          up to a minute.
+        </Alert>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -189,7 +207,7 @@ export function RegisterForm() {
       </div>
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? 'Creating account…' : 'Create account'}
+        {isSubmitting ? (wakingUp ? 'Waking up the server…' : 'Creating account…') : 'Create account'}
       </Button>
 
       <p className="text-sm text-slate-500">

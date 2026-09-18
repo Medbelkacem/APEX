@@ -10,6 +10,24 @@ const nextConfig = {
     // Lint is run as a separate CI step; don't fail production builds on it.
     ignoreDuringBuilds: true,
   },
+  /**
+   * Vercel + Render deploy: the API is a separate service (API_ORIGIN, e.g.
+   * https://apex-dm9i.onrender.com) with no reverse proxy of its own in front
+   * of it, so this app supplies one — Next rewrites every /api/* request to
+   * that origin, evaluated per-request server-side (never inlined into the
+   * client bundle, unlike a NEXT_PUBLIC_* var). The browser only ever talks
+   * to its own origin; lib/api/client.ts's relative '/api/...' base and this
+   * rewrite are two halves of the same same-origin design.
+   *
+   * Unset (the Docker/Caddy/Hostinger alternative, and local dev) means no
+   * rewrite is registered — Caddy already does this same job at the infra
+   * layer there, and dev talks to the API directly via NEXT_PUBLIC_API_URL.
+   */
+  async rewrites() {
+    const apiOrigin = process.env.API_ORIGIN;
+    if (!apiOrigin) return [];
+    return [{ source: '/api/:path*', destination: `${apiOrigin}/api/:path*` }];
+  },
   async headers() {
     return [
       {

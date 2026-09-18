@@ -73,7 +73,16 @@ export class S3StorageDriver implements StorageDriver {
 
   async save(relativePath: string, data: Buffer): Promise<void> {
     await this.client.send(
-      new PutObjectCommand({ Bucket: this.bucket, Key: this.key(relativePath), Body: data }),
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: this.key(relativePath),
+        Body: data,
+        // AES256 is the one SSE mode every S3-compatible backend used here
+        // (AWS, R2, B2, MinIO) accepts. A backend that doesn't support it
+        // would reject the whole request rather than silently drop it, so
+        // this is safe to send unconditionally.
+        ServerSideEncryption: 'AES256',
+      }),
     );
   }
 

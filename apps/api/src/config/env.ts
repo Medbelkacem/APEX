@@ -32,6 +32,9 @@ export const envObjectSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   // App
+  // PORT is the platform-assigned port (Render, Heroku, etc.); API_PORT is
+  // the local-dev/Docker name for the same thing. app.config.ts prefers PORT.
+  PORT: z.coerce.number().int().positive().optional(),
   API_PORT: z.coerce.number().int().positive().default(4000),
   API_URL: z.string().url().default('http://localhost:4000'),
   WEB_URL: z.string().url().default('http://localhost:3000'),

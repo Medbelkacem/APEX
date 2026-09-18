@@ -17,7 +17,11 @@ export function parseTrustProxy(raw: string | undefined): boolean | number | str
 
 export const appConfig = registerAs('app', () => ({
   env: process.env.NODE_ENV ?? 'development',
-  port: Number(process.env.API_PORT ?? 4000),
+  // Render (and most PaaS hosts) assign the listening port at runtime via
+  // PORT and expect the app to bind to it; API_PORT is the local-dev/Docker
+  // name for the same setting, so it stays the fallback rather than the other
+  // way round.
+  port: Number(process.env.PORT ?? process.env.API_PORT ?? 4000),
   apiUrl: process.env.API_URL ?? 'http://localhost:4000',
   webUrl: process.env.WEB_URL ?? 'http://localhost:3000',
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
