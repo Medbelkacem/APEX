@@ -83,13 +83,35 @@ And it should also have:
 
 ### Hostinger
 
-Required environment (root `.env`, read by the API — see `.env.example` for
-every variable and what it does):
+**How this is actually deployed today:** two separate hPanel "Node.js App"
+entries (hPanel → Websites → Node.js), no Docker, no shared origin/reverse
+proxy in front of them. The API owns the bare domain; the web app is a
+second app on `www.`:
+
+| App | Domain | Startup file |
+| --- | --- | --- |
+| API (`apps/api`) | `apex-dental-solution.com` | `dist/main.js` |
+| Web (`apps/web`) | `www.apex-dental-solution.com` | `apps/web/server.js` (Next's standalone output) |
+
+Web and API being on different subdomains of the same registrable domain is
+fine, not a workaround: `COOKIE_DOMAIN=apex-dental-solution.com` scopes the
+session cookies to both (a `Domain` attribute always covers subdomains), and
+`SameSite=Lax` (`auth.service.ts`) already treats same-registrable-domain
+subdomains as same-site — no `SameSite=None` needed. What matters is that
+`NEXT_PUBLIC_API_URL` for the web build is the API's real, different origin,
+not a relative path — see `apps/web/.env.production`. (The `docker/` stack —
+Caddy fronting both apps on one origin — is also in this repo and does work,
+but is not what production is currently running; it's a documented option if
+this ever moves to a VPS.)
+
+Required environment for the **API** app (its own hPanel Node.js app → its
+environment variables, or the server's `.env` if it reads one — see
+`.env.example` for every variable and what it does):
 
 ```
 NODE_ENV=production
 API_URL=https://apex-dental-solution.com
-WEB_URL=https://apex-dental-solution.com
+WEB_URL=https://www.apex-dental-solution.com
 CORS_ORIGINS=https://apex-dental-solution.com,https://www.apex-dental-solution.com
 COOKIE_DOMAIN=apex-dental-solution.com
 COOKIE_SECURE=true
@@ -102,20 +124,41 @@ Plus SMTP, Stripe and storage credentials per `.env.example`. `MAIL_FROM_ADDRESS
 must be a real sending domain — `no-reply@apex.example` cannot be delivered.
 
 Required at **web build time** (`apps/web/.env.production`, already committed
-with the values below — no panel configuration needed unless the API ends up
-on a different origin from the site):
+with the values below):
 
 ```
 NEXT_PUBLIC_API_URL=https://apex-dental-solution.com
-NEXT_PUBLIC_SITE_URL=https://apex-dental-solution.com
+NEXT_PUBLIC_SITE_URL=https://www.apex-dental-solution.com
 ```
 
-Redeploying via the Docker/Caddy stack (`docker/compose.prod.yml`) picks both
-of these up automatically. Redeploying by running `next build` directly
-(a plain Node.js app in Hostinger's hosting panel, without Docker) picks up
-`apps/web/.env.production` automatically too, as long as the build runs with
-`apps/web` as its working directory — Next only looks for env files next to
-`next.config.mjs`, not at the repo root.
+The web app has to be **built before it's uploaded** — a shared hPanel plan
+has no pnpm/turbo/enough memory for a monorepo build reliably, and the
+`Environment Variables` an hPanel Node.js app lets you set only apply to the
+already-built app at runtime, not to a build step it doesn't run. Build
+locally (or in CI) from the repo root:
+
+```bash
+pnpm install
+pnpm --filter @dental/shared-types build
+pnpm --filter @dental/web build   # picks up apps/web/.env.production automatically
+```
+
+That produces `apps/web/.next/standalone/`, `.next/static/` and `public/` —
+the same three paths `docker/web.Dockerfile`'s runtime stage copies. Assemble
+them the same way before uploading:
+
+```
+.next/standalone/**                       → upload as the app root
+.next/static/  → standalone/apps/web/.next/static/
+public/        → standalone/apps/web/public/
+```
+
+In hPanel, point the app's root at the uploaded `standalone/` folder and its
+startup file at `apps/web/server.js` inside it (Next's standalone server
+reads `PORT` from the environment automatically — hPanel sets this).
+Re-running the build and re-uploading is the only way to pick up a changed
+`NEXT_PUBLIC_*` value or new app code; restarting the hPanel app alone does
+not rebuild it.
 
 The web app sends a Content-Security-Policy, `X-Frame-Options: DENY`,
 `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and (in
