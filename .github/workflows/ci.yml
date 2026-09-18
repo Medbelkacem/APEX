@@ -2,38 +2,22 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build:
     name: Lint · Typecheck · Test · Build
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: dental
-          POSTGRES_PASSWORD: dental
-          POSTGRES_DB: dental
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U dental -d dental"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
+    # No service containers: the API's database is MongoDB, not Postgres, and
+    # both the unit and e2e suites run against mongodb-memory-server (an
+    # in-memory replica set the e2e suite's globalSetup starts itself — see
+    # apps/api/test/globalSetup.ts). Nothing external — no Mongo, no Redis —
+    # is needed to run this job.
     env:
       NODE_ENV: test
-      DB_HOST: localhost
-      DB_PORT: 5432
-      DB_USER: dental
-      DB_PASSWORD: dental
-      DB_NAME: dental
-      REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-test-secret-value-please-change
       MAIL_DRIVER: log
 
@@ -42,11 +26,11 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -61,8 +45,6 @@ jobs:
       - name: Test
         run: pnpm test
 
-      # Runs against the service container above. The harness creates and
-      # migrates its own `dental_test` database, so the dev one is never touched.
       - name: End-to-end tests
         run: pnpm --filter @dental/api test:e2e
 

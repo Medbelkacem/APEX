@@ -5,7 +5,7 @@
   "description": "Apex Digital Lab platform \u2014 marketing site, dentist portal, admin dashboard (monorepo).",
   "packageManager": "pnpm@11.3.0",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "build": "turbo run build",

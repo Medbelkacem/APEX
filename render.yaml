@@ -1,0 +1,98 @@
+# Render Blueprint for the API service. The service already exists
+# (srv-damm0ke1egvs73cpe5o0, https://apex-dm9i.onrender.com) — this file
+# documents its configuration as code and lets a future service be recreated
+# from scratch with `render blueprints` / the "New Blueprint" dashboard flow.
+#
+# Values here are placeholders or genuinely non-secret (domain names, ports,
+# feature flags) and are safe in this public repo. Anything that is an actual
+# credential is listed by name only with `sync: false` — Render then prompts
+# for the value once in its dashboard and stores it there, never here. See
+# docs/DEPLOY-FREE.md for the exact values to paste in.
+#
+# If Render's current Blueprint schema has moved on from what's below (this
+# was not deployed from this file — the service was created directly in the
+# dashboard), the dashboard's own "New Blueprint" validation will say exactly
+# what needs to change.
+services:
+  - type: web
+    name: apex-api
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./docker/api.Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render assigns and injects PORT itself; listed for documentation only
+      # — app.config.ts prefers it over API_PORT automatically.
+      - key: API_PORT
+        value: 4000
+      # Inert on a Docker-runtime service (the Dockerfile's own `FROM
+      # node:22-alpine` is what actually controls this) — kept for parity
+      # with the non-Docker env var list.
+      - key: NODE_VERSION
+        value: '22'
+      - key: API_URL
+        value: https://apex-dental-solution.com
+      - key: WEB_URL
+        value: https://apex-dental-solution.com
+      - key: CORS_ORIGINS
+        value: https://apex-dental-solution.com,https://www.apex-dental-solution.com
+      - key: COOKIE_DOMAIN
+        value: apex-dental-solution.com
+      - key: COOKIE_SECURE
+        value: 'true'
+      # One reverse proxy (Render's own) sits in front of the container.
+      - key: TRUST_PROXY
+        value: 'true'
+      - key: API_DOCS_ENABLED
+        value: 'false'
+      # No Redis in this deployment — inline sends mail in-process and rate
+      # limiting/queues need no external store.
+      - key: QUEUE_DRIVER
+        value: inline
+      - key: MAIL_DRIVER
+        value: smtp
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: '587'
+      - key: SMTP_SECURE
+        value: 'false'
+      - key: MAIL_FROM_NAME
+        value: Apex Digital Lab
+      - key: MAIL_FROM_ADDRESS
+        value: no-reply@apex-dental-solution.com
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: S3_ENDPOINT
+        value: https://s3.us-east-005.backblazeb2.com
+      - key: S3_REGION
+        value: us-east-005
+      - key: S3_BUCKET
+        value: Apex.dz
+      # Left at test/placeholder — Stripe is not enabled yet; the app boots
+      # and runs fully without it.
+      - key: STRIPE_MODE
+        value: test
+      # Secrets: name only. Render prompts for each on first blueprint sync,
+      # then stores it — never written back here.
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
