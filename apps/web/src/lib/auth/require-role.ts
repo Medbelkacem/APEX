@@ -1,7 +1,7 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { UserRole } from '@dental/shared-types';
-import { API_BASE } from '@/lib/api/client';
+import { serverApiBase } from '@/lib/api/server-base';
 import type { PublicUserResponse } from '@/lib/api/auth';
 
 /**
@@ -17,9 +17,12 @@ export async function requireRole(allowed: UserRole[]): Promise<PublicUserRespon
   const cookieHeader = cookies().toString();
   if (!cookieHeader) redirect('/login');
 
+  const headersList = headers();
+  const apiBase = serverApiBase((name) => headersList.get(name));
+
   let user: PublicUserResponse;
   try {
-    const res = await fetch(`${API_BASE}/api/auth/me`, {
+    const res = await fetch(`${apiBase}/api/auth/me`, {
       headers: { Cookie: cookieHeader },
       // Always reflect the live session; a cached identity could outlive a logout.
       cache: 'no-store',

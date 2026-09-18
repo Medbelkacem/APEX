@@ -69,8 +69,53 @@ And it should also have:
   wanted; it maps every route for whoever can reach it.
 - `CORS_ORIGINS` and `COOKIE_DOMAIN` set to the real web origin and domain.
 - `NEXT_PUBLIC_API_URL` set at **build** time of the web app: it is baked into
-  the Content-Security-Policy's `connect-src`, so a web build pointed at the
-  wrong API origin cannot talk to the right one.
+  the client bundle and the Content-Security-Policy's `connect-src`, so a web
+  build pointed at the wrong API origin cannot talk to the right one. Since
+  the app is served from one origin behind Caddy (`docker/Caddyfile`), leaving
+  it unset is also safe: `apps/web/src/lib/api/client.ts` then defaults to a
+  same-origin relative `/api/...` path instead of a hardcoded API URL, which
+  is what makes the checks below actually enforceable — the API refuses to
+  boot in production with a `localhost`/private-IP or plain-`http://` value in
+  `API_URL`, `WEB_URL`, `COOKIE_DOMAIN` or `CORS_ORIGINS` (see `config/env.ts`).
+  A build whose browser bundle ends up calling a loopback/private address is
+  exactly what makes Chrome show the "wants to access other apps and services
+  on this device" (Private Network Access) prompt instead of registering.
+
+### Hostinger
+
+Required environment (root `.env`, read by the API — see `.env.example` for
+every variable and what it does):
+
+```
+NODE_ENV=production
+API_URL=https://apex-dental-solution.com
+WEB_URL=https://apex-dental-solution.com
+CORS_ORIGINS=https://apex-dental-solution.com,https://www.apex-dental-solution.com
+COOKIE_DOMAIN=apex-dental-solution.com
+COOKIE_SECURE=true
+TRUST_PROXY=1
+JWT_SECRET=<openssl rand -base64 48>
+MONGODB_URI=<the production replica-set connection string>
+```
+
+Plus SMTP, Stripe and storage credentials per `.env.example`. `MAIL_FROM_ADDRESS`
+must be a real sending domain — `no-reply@apex.example` cannot be delivered.
+
+Required at **web build time** (`apps/web/.env.production`, already committed
+with the values below — no panel configuration needed unless the API ends up
+on a different origin from the site):
+
+```
+NEXT_PUBLIC_API_URL=https://apex-dental-solution.com
+NEXT_PUBLIC_SITE_URL=https://apex-dental-solution.com
+```
+
+Redeploying via the Docker/Caddy stack (`docker/compose.prod.yml`) picks both
+of these up automatically. Redeploying by running `next build` directly
+(a plain Node.js app in Hostinger's hosting panel, without Docker) picks up
+`apps/web/.env.production` automatically too, as long as the build runs with
+`apps/web` as its working directory — Next only looks for env files next to
+`next.config.mjs`, not at the repo root.
 
 The web app sends a Content-Security-Policy, `X-Frame-Options: DENY`,
 `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and (in

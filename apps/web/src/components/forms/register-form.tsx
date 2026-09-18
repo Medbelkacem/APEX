@@ -10,6 +10,7 @@ import { Input, Label, FieldError } from '@/components/ui/field';
 import { Alert } from '@/components/ui/alert';
 import { authApi } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
+import { suggestEmailCorrection } from '@/lib/validation/email-typos';
 
 /** Mirrors the API's password policy so the rules are stated before submitting. */
 const password = z
@@ -23,7 +24,15 @@ const schema = z
   .object({
     firstName: z.string().min(1, 'Enter your first name'),
     lastName: z.string().min(1, 'Enter your last name'),
-    email: z.string().email('Enter a valid email'),
+    email: z
+      .string()
+      .email('Enter a valid email')
+      .refine(
+        (value) => !suggestEmailCorrection(value),
+        (value) => ({
+          message: `Check this address — did you mean ${suggestEmailCorrection(value)}?`,
+        }),
+      ),
     phone: z.string().optional(),
     // Required: the lab cannot price, invoice or ship a case without knowing
     // which practice it belongs to and where the work goes.
@@ -91,8 +100,8 @@ export function RegisterForm() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Check your email</h1>
           <p className="mt-2 text-sm text-slate-600">
-            If we can set up an account for <span className="font-medium">{submittedTo}</span>,
-            a confirmation link is on its way. Open it to confirm your address.
+            If we can set up an account for <span className="font-medium">{submittedTo}</span>, a
+            confirmation link is on its way. Open it to confirm your address.
           </p>
         </div>
         <Alert tone="info">

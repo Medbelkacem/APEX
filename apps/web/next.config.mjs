@@ -17,7 +17,12 @@ const nextConfig = {
         source: '/:path*',
         headers: securityHeaders({
           production: process.env.NODE_ENV === 'production',
-          apiUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000',
+          // Same-origin default in production, matching `lib/api/client.ts` —
+          // 'self' already covers connect-src for a relative API base, so an
+          // unset var here is not a missing origin, it is the same one.
+          apiUrl:
+            process.env.NEXT_PUBLIC_API_URL ??
+            (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000'),
         }),
       },
       {

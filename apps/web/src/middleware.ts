@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { serverApiBase } from '@/lib/api/server-base';
 
 /** Seconds of remaining life below which a token is treated as already gone. */
 const EXPIRY_SKEW = 30;
@@ -55,9 +54,11 @@ export async function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get('refresh_token')?.value;
   if (!refreshToken) return loginRedirect(request);
 
+  const apiBase = serverApiBase((name) => request.headers.get(name));
+
   let refreshed: Response;
   try {
-    refreshed = await fetch(`${API_BASE}/api/auth/refresh`, {
+    refreshed = await fetch(`${apiBase}/api/auth/refresh`, {
       method: 'POST',
       headers: { Cookie: `refresh_token=${refreshToken}` },
       cache: 'no-store',
@@ -78,10 +79,7 @@ export async function middleware(request: NextRequest) {
 
   const headers = new Headers(request.headers);
   if (renewed.size > 0) {
-    headers.set(
-      'cookie',
-      mergeCookieHeader(request.headers.get('cookie') ?? '', renewed),
-    );
+    headers.set('cookie', mergeCookieHeader(request.headers.get('cookie') ?? '', renewed));
   }
 
   const response = NextResponse.next({ request: { headers } });

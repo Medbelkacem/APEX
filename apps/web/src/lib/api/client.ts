@@ -1,4 +1,19 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+/**
+ * Base URL every browser-side API call is built from.
+ *
+ * Same-origin by default in production (an empty string, so
+ * `${API_BASE}/api/...` resolves as the relative path `/api/...`): the
+ * reverse proxy in front of production (see `docker/Caddyfile`) mounts the
+ * API under `/api` on the same origin as the site, so a relative path always
+ * reaches it — and can never resolve to a loopback/private address, which is
+ * what happens if a build ships without `NEXT_PUBLIC_API_URL` set. Local dev
+ * runs the API on its own port, so it keeps an absolute localhost fallback.
+ * Set `NEXT_PUBLIC_API_URL` to override either default (e.g. the API on its
+ * own subdomain).
+ */
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000');
 
 export class ApiError extends Error {
   constructor(
