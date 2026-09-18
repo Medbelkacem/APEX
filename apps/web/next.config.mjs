@@ -14,10 +14,15 @@ const nextConfig = {
    * Vercel + Render deploy: the API is a separate service (API_ORIGIN, e.g.
    * https://apex-dm9i.onrender.com) with no reverse proxy of its own in front
    * of it, so this app supplies one — Next rewrites every /api/* request to
-   * that origin, evaluated per-request server-side (never inlined into the
-   * client bundle, unlike a NEXT_PUBLIC_* var). The browser only ever talks
-   * to its own origin; lib/api/client.ts's relative '/api/...' base and this
-   * rewrite are two halves of the same same-origin design.
+   * that origin. The browser only ever talks to its own origin;
+   * lib/api/client.ts's relative '/api/...' base and this rewrite are two
+   * halves of the same same-origin design. Unlike a NEXT_PUBLIC_* var,
+   * API_ORIGIN is never inlined into the client bundle — but it is still
+   * resolved once, when this config is loaded to build the routing table
+   * (Vercel does this at build time, same as everything else `rewrites()`
+   * returns), not freshly per incoming request. Adding or changing it in the
+   * Vercel dashboard needs a new deployment to take effect, exactly like a
+   * NEXT_PUBLIC_* var would.
    *
    * Unset (the Docker/Caddy/Hostinger alternative, and local dev) means no
    * rewrite is registered — Caddy already does this same job at the infra
