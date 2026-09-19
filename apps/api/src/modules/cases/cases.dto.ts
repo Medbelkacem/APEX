@@ -58,3 +58,34 @@ export const uploadFilesSchema = z.object({
   fileType: z.nativeEnum(CaseFileType).optional(),
 });
 export class UploadFilesDto extends createZodDto(uploadFilesSchema) {}
+
+/** Maximum attachments accepted in a single presigned-upload batch. */
+const MAX_PRESIGN_BATCH = 20;
+
+export const presignUploadSchema = z.object({
+  files: z
+    .array(
+      z.object({
+        filename: z.string().min(1).max(255),
+        sizeBytes: z.coerce.number().int().positive(),
+      }),
+    )
+    .min(1)
+    .max(MAX_PRESIGN_BATCH),
+  fileType: z.nativeEnum(CaseFileType).optional(),
+});
+export class PresignUploadDto extends createZodDto(presignUploadSchema) {}
+
+export const finalizeUploadSchema = z.object({
+  files: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        filename: z.string().min(1).max(255),
+      }),
+    )
+    .min(1)
+    .max(MAX_PRESIGN_BATCH),
+  fileType: z.nativeEnum(CaseFileType).optional(),
+});
+export class FinalizeUploadDto extends createZodDto(finalizeUploadSchema) {}

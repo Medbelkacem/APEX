@@ -31,6 +31,21 @@ export const databaseConfig = registerAs(
     autoIndex: true,
     // Fail fast instead of buffering commands for 10s when Mongo is unreachable.
     serverSelectionTimeoutMS: 5000,
+    // serverSelectionTimeoutMS bounds waiting for a *known-good* server, not
+    // the raw socket connect — a network path that silently drops packets
+    // (a firewalled/blocked IP, not a refused connection) hangs in the
+    // driver's own connect step regardless, for as long as connectTimeoutMS
+    // allows. Bounding that too turns a serverless function timing out
+    // opaquely at its own ceiling into a clear, fast "can't reach Mongo"
+    // error instead.
+    connectTimeoutMS: 5000,
+    // @nestjs/mongoose retries a failed initial connection on its own; left at
+    // its default this can retry for far longer than a serverless function's
+    // own execution ceiling, turning a fast, clear connection error into an
+    // opaque platform timeout instead. One retry is still real resilience
+    // against a one-off blip, just bounded.
+    retryAttempts: 1,
+    retryDelay: 1000,
   }),
 );
 

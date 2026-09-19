@@ -51,6 +51,31 @@ export class LocalStorageDriver implements StorageDriver {
     }
   }
 
+  async headSize(relativePath: string): Promise<number | null> {
+    try {
+      const stat = await fs.stat(this.abs(relativePath));
+      return stat.size;
+    } catch {
+      return null;
+    }
+  }
+
+  async readPrefix(relativePath: string, length: number): Promise<Buffer> {
+    const handle = await fs.open(this.abs(relativePath), 'r');
+    try {
+      const buf = Buffer.alloc(length);
+      const { bytesRead } = await handle.read(buf, 0, length, 0);
+      return buf.subarray(0, bytesRead);
+    } finally {
+      await handle.close();
+    }
+  }
+
+  // No presignPut/presignGet: local disk has no public HTTP endpoint of its
+  // own to hand out a direct-upload/download URL for. Dev keeps using the
+  // proxied multipart upload and streamed download instead — see
+  // CaseFilesService's driver-capability check.
+
   /** Exposed for join operations by callers that need the concrete root. */
   static join(...parts: string[]): string {
     return join(...parts);

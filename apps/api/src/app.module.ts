@@ -36,6 +36,7 @@ import { StatisticsModule } from './modules/statistics/statistics.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { ContactModule } from './modules/contact/contact.module';
 import { HealthModule } from './modules/health/health.module';
+import { CronModule } from './modules/cron/cron.module';
 
 import { CsrfGuard } from './common/guards/csrf.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -125,6 +126,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     StatisticsModule,
     ContactModule,
     HealthModule,
+    CronModule,
   ],
   providers: [
     // Ahead of authentication: a forged request should be turned away for being

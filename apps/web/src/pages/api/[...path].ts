@@ -25,9 +25,15 @@ let cachedApp: Promise<Express> | undefined;
  */
 async function getApp(): Promise<Express> {
   if (!cachedApp) {
+    // Plain console.* rather than the Nest app's own pino logger: pino writes
+    // to its own file descriptor rather than through console.log, which is
+    // what a serverless platform's log capture actually hooks — without
+    // this, a boot failure here is otherwise completely invisible.
+    console.log('[api] cold start: booting the app');
     cachedApp = import('@dental/api/app')
       .then((mod) => mod.createExpressApp())
       .catch((err: unknown) => {
+        console.error('[api] cold start: boot failed', err);
         cachedApp = undefined;
         throw err;
       });
@@ -36,6 +42,13 @@ async function getApp(): Promise<Express> {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse): Promise<void> {
-  const app = await getApp();
-  app(req, res);
+  try {
+    const app = await getApp();
+    app(req, res);
+  } catch (err) {
+    console.error('[api] request failed to boot the app', err);
+    if (!res.headersSent) {
+      res.status(500).json({ statusCode: 500, error: 'ServerError', message: 'The API failed to start.' });
+    }
+  }
 }

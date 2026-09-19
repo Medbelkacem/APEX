@@ -1,4 +1,4 @@
-import { API_BASE, api, csrfToken } from './client';
+import { API_BASE, ApiError, api, csrfToken } from './client';
 import type {
   CaseFileWithUploader,
   CaseSummary,
@@ -72,15 +72,40 @@ export interface UploadProgress {
   percent: number;
 }
 
+interface PresignedTarget {
+  path: string;
+  filename: string;
+  uploadUrl: string;
+  mimeType: string;
+}
+
+/** PUT one file straight to storage (B2/S3), reporting progress as it goes. */
+function putDirect(target: PresignedTarget, file: File, onLoaded?: (loaded: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', target.uploadUrl);
+    // Must match exactly what the presigned URL's signature was computed
+    // over — any other Content-Type fails the upload with a signature error.
+    xhr.setRequestHeader('Content-Type', target.mimeType);
+    xhr.upload.onprogress = (event) => onLoaded?.(event.loaded);
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`"${target.filename}" failed to upload (${xhr.status})`));
+    };
+    xhr.onerror = () => reject(new Error(`Network error uploading "${target.filename}"`));
+    xhr.send(file);
+  });
+}
+
 /**
- * Upload case files with progress. Uses XMLHttpRequest rather than fetch
- * because fetch still cannot report request-body upload progress, and large
- * STL scans need a real progress bar.
+ * Upload the old way — the file bodies pass through the API itself. Kept as
+ * the local-dev path (no B2 configured there) and as the fallback for a
+ * deployment with no S3-compatible storage driver.
  */
-export function uploadCaseFiles(
+function uploadViaApi(
   caseId: string,
   files: File[],
-  options: { fileType?: string; onProgress?: (p: UploadProgress) => void } = {},
+  options: { fileType?: string; onProgress?: (p: UploadProgress) => void },
 ): Promise<CaseFileWithUploader[]> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
@@ -125,5 +150,56 @@ export function uploadCaseFiles(
 
     xhr.onerror = () => reject(new Error('Network error during upload'));
     xhr.send(form);
+  });
+}
+
+/**
+ * Upload case files directly to storage via a presigned URL, so a 40 MB STL
+ * scan never has to pass through — and count against the body-size ceiling
+ * of — the API itself. Falls back to routing the bytes through the API when
+ * this deployment has no S3-compatible storage driver configured (local dev).
+ */
+export async function uploadCaseFiles(
+  caseId: string,
+  files: File[],
+  options: { fileType?: string; onProgress?: (p: UploadProgress) => void } = {},
+): Promise<CaseFileWithUploader[]> {
+  let targets: PresignedTarget[];
+  try {
+    targets = await api.post<PresignedTarget[]>(`/cases/${caseId}/files/presign`, {
+      files: files.map((f) => ({ filename: f.name, sizeBytes: f.size })),
+      fileType: options.fileType,
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 400) {
+      return uploadViaApi(caseId, files, options);
+    }
+    throw err;
+  }
+
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  const loadedByIndex = new Array<number>(files.length).fill(0);
+  const reportProgress = () => {
+    if (!options.onProgress) return;
+    const loaded = loadedByIndex.reduce((sum, n) => sum + n, 0);
+    options.onProgress({
+      loaded,
+      total: totalBytes,
+      percent: totalBytes ? Math.round((loaded / totalBytes) * 100) : 0,
+    });
+  };
+
+  await Promise.all(
+    targets.map((target, i) =>
+      putDirect(target, files[i], (loaded) => {
+        loadedByIndex[i] = loaded;
+        reportProgress();
+      }),
+    ),
+  );
+
+  return api.post<CaseFileWithUploader[]>(`/cases/${caseId}/files/finalize`, {
+    files: targets.map((t) => ({ path: t.path, filename: t.filename })),
+    fileType: options.fileType,
   });
 }

@@ -11,40 +11,23 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   /**
-   * Vercel + Render deploy: the API is a separate service (API_ORIGIN, e.g.
-   * https://apex-dm9i.onrender.com) with no reverse proxy of its own in front
-   * of it, so this app supplies one — Next rewrites every /api/* request to
-   * that origin. The browser only ever talks to its own origin;
-   * lib/api/client.ts's relative '/api/...' base and this rewrite are two
-   * halves of the same same-origin design. Unlike a NEXT_PUBLIC_* var,
-   * API_ORIGIN is never inlined into the client bundle — but it is still
-   * resolved once, when this config is loaded to build the routing table
-   * (Vercel does this at build time, same as everything else `rewrites()`
-   * returns), not freshly per incoming request. Adding or changing it in the
-   * Vercel dashboard needs a new deployment to take effect, exactly like a
-   * NEXT_PUBLIC_* var would.
+   * The API is served natively by this app on Vercel now — src/pages/api/
+   * [...path].ts boots the same Nest app in a serverless function on this
+   * project's own origin, so /api/* needs no rewrite by default.
    *
-   * Unset (the Docker/Caddy/Hostinger alternative, and local dev) means no
-   * rewrite is registered — Caddy already does this same job at the infra
-   * layer there, and dev talks to the API directly via NEXT_PUBLIC_API_URL.
+   * API_ORIGIN survives purely as an escape hatch: if it's set, /api/* is
+   * proxied to that origin instead (e.g. back to the old Render service),
+   * which is only worth doing to roll back the serverless API without a code
+   * revert. Unlike a NEXT_PUBLIC_* var it is never inlined into the client
+   * bundle, but it is still resolved once at build time (same as everything
+   * else `rewrites()` returns) — changing it in the Vercel dashboard needs a
+   * new deployment to take effect. Also doubles as the Docker/Caddy/Hostinger
+   * path's own setting, where Caddy fronts the API directly and dev talks to
+   * it via NEXT_PUBLIC_API_URL instead.
    */
   async rewrites() {
     const apiOrigin = process.env.API_ORIGIN;
-    if (!apiOrigin) {
-      // A Vercel production build with no API_ORIGIN silently ships zero
-      // rewrites — every /api/* request then 404s on Next's own router
-      // instead of reaching the API, and the failure only ever surfaces
-      // later as a vague "please try again" in the UI. Fail the build
-      // instead, where it is immediately actionable.
-      if (process.env.VERCEL_ENV === 'production') {
-        throw new Error(
-          'API_ORIGIN is not set for this Vercel Production build. Set it in the ' +
-            'Vercel dashboard (Project Settings → Environment Variables → Production) ' +
-            'to the API origin (e.g. https://apex-dm9i.onrender.com) and redeploy.',
-        );
-      }
-      return [];
-    }
+    if (!apiOrigin) return [];
     return [{ source: '/api/:path*', destination: `${apiOrigin}/api/:path*` }];
   },
   /**

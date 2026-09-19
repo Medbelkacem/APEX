@@ -91,13 +91,16 @@ export const envObjectSchema = z.object({
   STRIPE_MODE: z.enum(['test', 'live']).default('test'),
 
   // Mail
-  MAIL_DRIVER: z.enum(['smtp', 'sendgrid', 'log']).default('smtp'),
+  MAIL_DRIVER: z.enum(['smtp', 'sendgrid', 'brevo', 'log']).default('smtp'),
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().int().positive().default(1025),
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASSWORD: z.string().optional().default(''),
   SMTP_SECURE: zBool(false),
   SENDGRID_API_KEY: z.string().optional().default(''),
+  // Brevo's HTTP API — the only mail path that works from a host (Render's
+  // free plan) that blocks outbound SMTP ports entirely.
+  BREVO_API_KEY: z.string().optional().default(''),
   MAIL_FROM_NAME: z.string().default('Apex Digital Lab'),
   MAIL_FROM_ADDRESS: z.string().email().default('no-reply@apex.example'),
 
@@ -116,6 +119,11 @@ export const envObjectSchema = z.object({
   // Platform defaults
   DEFAULT_CURRENCY: z.string().length(3).default('USD'),
   DEFAULT_TIMEZONE: z.string().default('UTC'),
+
+  // Authorizes Vercel Cron's HTTP trigger for the jobs @nestjs/schedule runs
+  // in-process on Docker/Render (see CronSecretGuard). Unused there — only
+  // required when this deployment's cron endpoints are actually reachable.
+  CRON_SECRET: z.string().optional().default(''),
 });
 
 /**
@@ -194,6 +202,14 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
       code: z.ZodIssueCode.custom,
       path: ['COOKIE_DOMAIN'],
       message: `must be the real site domain in production, not "${env.COOKIE_DOMAIN}" — a browser never accepts a cookie scoped to a domain other than the one it is talking to`,
+    });
+  }
+
+  if (env.MAIL_DRIVER === 'brevo' && !env.BREVO_API_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['BREVO_API_KEY'],
+      message: 'is required in production when MAIL_DRIVER=brevo',
     });
   }
 

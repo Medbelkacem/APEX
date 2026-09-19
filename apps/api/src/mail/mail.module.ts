@@ -5,6 +5,7 @@ import { MailService } from './mail.service';
 import { AccountEmailsService } from './account-emails.service';
 import { MAIL_TRANSPORT } from './mail-transport.interface';
 import { SmtpTransport } from './transports/smtp.transport';
+import { BrevoTransport } from './transports/brevo.transport';
 import { LogTransport } from './transports/log.transport';
 import { EmailProcessor } from '../jobs/email.processor';
 
@@ -13,7 +14,9 @@ const transportProvider: Provider = {
   inject: [ConfigService],
   useFactory: (config: ConfigService) => {
     const mail = config.get<MailConfig>('mail')!;
-    return mail.driver === 'log' ? new LogTransport() : new SmtpTransport(mail);
+    if (mail.driver === 'log') return new LogTransport();
+    if (mail.driver === 'brevo') return new BrevoTransport(mail);
+    return new SmtpTransport(mail);
   },
 };
 

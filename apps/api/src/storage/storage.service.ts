@@ -50,4 +50,31 @@ export class StorageService {
   exists(relativePath: string): Promise<boolean> {
     return this.driver.exists(relativePath);
   }
+
+  headSize(relativePath: string): Promise<number | null> {
+    return this.driver.headSize(relativePath);
+  }
+
+  readPrefix(relativePath: string, length: number): Promise<Buffer> {
+    return this.driver.readPrefix(relativePath, length);
+  }
+
+  /** Whether this backend can hand out direct browser-to-storage URLs (S3-compatible drivers only, not local disk). */
+  supportsPresignedUrls(): boolean {
+    return typeof this.driver.presignPut === 'function' && typeof this.driver.presignGet === 'function';
+  }
+
+  presignPut(relativePath: string, contentType: string): Promise<string> {
+    if (!this.driver.presignPut) {
+      throw new Error('Storage driver does not support presigned uploads');
+    }
+    return this.driver.presignPut(relativePath, contentType, 15 * 60);
+  }
+
+  presignGet(relativePath: string, downloadFilename: string, mimeType: string): Promise<string> {
+    if (!this.driver.presignGet) {
+      throw new Error('Storage driver does not support presigned downloads');
+    }
+    return this.driver.presignGet(relativePath, downloadFilename, mimeType, 15 * 60);
+  }
 }

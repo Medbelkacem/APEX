@@ -26,7 +26,9 @@ import { CaseFilesService, IncomingFile } from './case-files.service';
 import {
   ChangeStatusDto,
   CreateCaseDto,
+  FinalizeUploadDto,
   ListCasesDto,
+  PresignUploadDto,
   ReassignCaseDto,
   UpdateCaseDto,
   UploadFilesDto,
@@ -169,6 +171,37 @@ export class CasesController {
     return this.caseFiles.list(id, user);
   }
 
+  @Post(':id/files/presign')
+  @ApiOperation({
+    summary:
+      'Get direct-to-storage upload URLs for one or more files (used for anything the API itself cannot proxy the body of).',
+  })
+  presignUpload(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PresignUploadDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.caseFiles.presignUpload(id, dto.files, user, dto.fileType);
+  }
+
+  @Post(':id/files/finalize')
+  @ApiOperation({ summary: 'Confirm direct-to-storage uploads landed correctly and record them.' })
+  async finalizeUpload(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: FinalizeUploadDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const saved = await this.caseFiles.finalizeUpload(id, dto.files, user, dto.fileType);
+    await this.audit.record({
+      userId: user.id,
+      action: 'case.files_uploaded',
+      entityType: 'case',
+      entityId: id,
+      metadata: { count: saved.length, names: saved.map((f) => f.originalFilename) },
+    });
+    return saved;
+  }
+
   @Post(':id/files')
   @UseInterceptors(
     FilesInterceptor('files', MAX_FILES_PER_REQUEST, {
@@ -205,13 +238,22 @@ export class CasesController {
   }
 
   @Get(':id/files/:fileId')
-  @ApiOperation({ summary: 'Download a case file (streamed).' })
+  @ApiOperation({
+    summary:
+      'Download a case file — redirects to a direct storage URL where the backend supports it, otherwise streams it through the API.',
+  })
   async download(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('fileId', ParseUUIDPipe) fileId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Res() res: Response,
   ): Promise<void> {
+    if (this.caseFiles.supportsDirectTransfer()) {
+      const url = await this.caseFiles.presignDownloadUrl(id, fileId, user);
+      res.redirect(302, url);
+      return;
+    }
+
     const { file, stream } = await this.caseFiles.openForDownload(id, fileId, user);
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Length', String(file.sizeBytes));
