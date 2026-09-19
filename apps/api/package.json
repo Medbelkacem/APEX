@@ -4,6 +4,10 @@
   "private": true,
   "description": "Apex Digital Lab platform — NestJS backend API.",
   "main": "dist/main.js",
+  "exports": {
+    ".": "./dist/main.js",
+    "./app": "./dist/create-app.js"
+  },
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
