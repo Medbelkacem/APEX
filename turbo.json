@@ -10,7 +10,9 @@
     "SMTP_HOST",
     "SMTP_PORT",
     "SMTP_USER",
-    "SMTP_PASSWORD"
+    "SMTP_PASSWORD",
+    "API_ORIGIN",
+    "NEXT_PUBLIC_API_URL"
   ],
   "tasks": {
     "build": {
