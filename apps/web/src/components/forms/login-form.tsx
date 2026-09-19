@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label, FieldError } from '@/components/ui/field';
 import { Alert } from '@/components/ui/alert';
 import { authApi } from '@/lib/api/auth';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, warmUpApi } from '@/lib/api/client';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -38,6 +39,12 @@ export function LoginForm() {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
+
+  // Nudge a sleeping Render instance awake while the person is still filling
+  // in the form, not only once they submit it.
+  useEffect(() => {
+    warmUpApi();
+  }, []);
 
   async function onSubmit(values: FormValues) {
     try {

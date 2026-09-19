@@ -92,30 +92,98 @@ function request(path: string, options: RequestInit): Promise<Response> {
   });
 }
 
+/** Gateway statuses a sleeping Render free-tier instance produces while waking. */
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+const RETRY_DELAY_MS = 1500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function wakingUpError(status: number): ApiError {
+  return new ApiError(status, 'Server is waking up, please retry in a moment.');
+}
+
+function networkError(cause: unknown): ApiError {
+  return new ApiError(0, 'Could not reach the server. Check your connection and try again.', cause);
+}
+
+type Settled = { retry: false; response: Response } | { retry: true; error: ApiError };
+
+async function settle(path: string, options: RequestInit): Promise<Settled> {
+  let response: Response;
+  try {
+    response = await request(path, options);
+  } catch (err) {
+    return { retry: true, error: networkError(err) };
+  }
+  if (RETRYABLE_STATUSES.has(response.status)) {
+    return { retry: true, error: wakingUpError(response.status) };
+  }
+  return { retry: false, response };
+}
+
+/**
+ * One fetch, then — only for a network failure or a 502/503/504, the shapes a
+ * sleeping Render instance produces — exactly one retry after a short delay.
+ * Every other outcome (including a normal 4xx/5xx from the API) returns
+ * immediately for the caller to interpret.
+ */
+async function fetchWithRetry(path: string, options: RequestInit): Promise<Response> {
+  const first = await settle(path, options);
+  if (!first.retry) return first.response;
+
+  await sleep(RETRY_DELAY_MS);
+  const second = await settle(path, options);
+  if (!second.retry) return second.response;
+  throw second.error;
+}
+
 /**
  * Thin fetch wrapper around the REST API. Always sends cookies (credentials:
- * 'include') so the HttpOnly session cookies flow on same-site requests.
+ * 'include') so the HttpOnly session cookies flow on same-site requests, and
+ * always rejects with an `ApiError` — never a raw `TypeError` or
+ * `SyntaxError` — so every caller can do `err instanceof ApiError` and get a
+ * message fit to show a user.
  *
  * Access tokens are short-lived by design, so a 401 is an expected part of a
  * normal session rather than an error: it is retried once behind a refresh. If
  * the refresh also fails the session is genuinely over and the 401 surfaces.
  */
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  let res = await request(path, options);
+  let res = await fetchWithRetry(path, options);
 
   if (res.status === 401 && !NO_REFRESH.some((p) => path.startsWith(p))) {
     if (await refreshSession()) {
-      res = await request(path, options);
+      res = await fetchWithRetry(path, options);
     }
   }
 
   const raw = await res.text();
-  const data = raw ? (JSON.parse(raw) as unknown) : null;
+  let data: unknown = null;
+  if (raw) {
+    try {
+      data = JSON.parse(raw) as unknown;
+    } catch {
+      // A proxy/error page (e.g. a 404 or 502 from in front of the API)
+      // instead of the API's own JSON — surface the status, not a parse crash.
+      throw new ApiError(res.status, `Unexpected response from the server (status ${res.status}).`, raw);
+    }
+  }
 
   if (!res.ok) {
     throw new ApiError(res.status, messageFrom(data, res.statusText), data);
   }
   return data as T;
+}
+
+/**
+ * Fire-and-forget ping to nudge a sleeping Render instance awake as soon as a
+ * login/register page renders, instead of only on submit — shaves the cold
+ * start off the time a user is staring at a spinner.
+ */
+export function warmUpApi(): void {
+  void fetch(`${API_BASE}/api/health`, { credentials: 'omit', cache: 'no-store' }).catch(() => {});
 }
 
 export const api = {

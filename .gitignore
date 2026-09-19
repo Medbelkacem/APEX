@@ -62,3 +62,5 @@ docker/data/
 
 # Backup archives from scripts/backup.sh — never commit
 backups/
+.vercel
+.env*

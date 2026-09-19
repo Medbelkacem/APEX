@@ -30,7 +30,21 @@ const nextConfig = {
    */
   async rewrites() {
     const apiOrigin = process.env.API_ORIGIN;
-    if (!apiOrigin) return [];
+    if (!apiOrigin) {
+      // A Vercel production build with no API_ORIGIN silently ships zero
+      // rewrites — every /api/* request then 404s on Next's own router
+      // instead of reaching the API, and the failure only ever surfaces
+      // later as a vague "please try again" in the UI. Fail the build
+      // instead, where it is immediately actionable.
+      if (process.env.VERCEL_ENV === 'production') {
+        throw new Error(
+          'API_ORIGIN is not set for this Vercel Production build. Set it in the ' +
+            'Vercel dashboard (Project Settings → Environment Variables → Production) ' +
+            'to the API origin (e.g. https://apex-dm9i.onrender.com) and redeploy.',
+        );
+      }
+      return [];
+    }
     return [{ source: '/api/:path*', destination: `${apiOrigin}/api/:path*` }];
   },
   async headers() {

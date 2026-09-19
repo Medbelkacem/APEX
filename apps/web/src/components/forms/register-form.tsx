@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label, FieldError } from '@/components/ui/field';
 import { Alert } from '@/components/ui/alert';
 import { authApi } from '@/lib/api/auth';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, warmUpApi } from '@/lib/api/client';
 import { suggestEmailCorrection } from '@/lib/validation/email-typos';
 
 /** Mirrors the API's password policy so the rules are stated before submitting. */
@@ -77,6 +77,12 @@ export function RegisterForm() {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
+
+  // Nudge a sleeping Render instance awake while the person is still filling
+  // in the form, not only once they submit it.
+  useEffect(() => {
+    warmUpApi();
+  }, []);
 
   async function onSubmit(values: FormValues) {
     const wakeTimer = setTimeout(() => setWakingUp(true), WAKING_UP_HINT_MS);

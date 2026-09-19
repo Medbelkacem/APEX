@@ -61,6 +61,59 @@ describe('apiFetch', () => {
 
     await expect(apiFetch('/users')).rejects.toThrow('email invalid, name required');
   });
+
+  it('throws an ApiError carrying the status when the response is not JSON', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      text: () => Promise.resolve('<!DOCTYPE html><title>404</title>'),
+    } as Response);
+
+    await expect(apiFetch('/health')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 404,
+      message: expect.stringContaining('404'),
+    });
+  });
+});
+
+describe('retry on gateway errors and network failure', () => {
+  it('retries once on a 502 and returns the retry if it succeeds', async () => {
+    fetchMock.mockResolvedValueOnce(reply(502)).mockResolvedValueOnce(reply(200, { ok: true }));
+
+    await expect(apiFetch('/health')).resolves.toEqual({ ok: true });
+    expect(calledPaths()).toHaveLength(2);
+  });
+
+  it('gives up after one retry and reports the server is waking up', async () => {
+    fetchMock.mockResolvedValueOnce(reply(503)).mockResolvedValueOnce(reply(504));
+
+    await expect(apiFetch('/health')).rejects.toMatchObject({
+      name: 'ApiError',
+      message: expect.stringContaining('waking up'),
+    });
+    expect(calledPaths()).toHaveLength(2);
+  });
+
+  it('retries once on a network failure and returns the retry if it succeeds', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(reply(200, { ok: true }));
+
+    await expect(apiFetch('/health')).resolves.toEqual({ ok: true });
+    expect(calledPaths()).toHaveLength(2);
+  });
+
+  it('reports an ApiError, not the raw error, when both attempts fail to connect', async () => {
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+
+    await expect(apiFetch('/health')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 0,
+    });
+    expect(calledPaths()).toHaveLength(2);
+  });
 });
 
 describe('CSRF token', () => {
