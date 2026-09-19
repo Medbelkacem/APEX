@@ -47,6 +47,29 @@ const nextConfig = {
     }
     return [{ source: '/api/:path*', destination: `${apiOrigin}/api/:path*` }];
   },
+  /**
+   * The Nest app (imported by src/pages/api/[...path].ts) pulls in
+   * @nestjs/core, which does its own optional, try/caught `require()` of
+   * transports this app never installs or uses (@nestjs/websockets,
+   * @nestjs/microservices) so it can support them if present. Webpack's
+   * static bundling doesn't know those requires are meant to fail softly and
+   * hard-fails the build the moment one resolves to a missing package.
+   * Marking @dental/api external sidesteps the whole problem: webpack leaves
+   * every `require('@dental/api/...')` as a real runtime require instead of
+   * trying to bundle it, so Node's own (successful, try/caught) module
+   * resolution handles it exactly as it does for the Docker/Render process.
+   */
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push(({ request }, callback) => {
+        if (request === '@dental/api' || request.startsWith('@dental/api/')) {
+          return callback(null, `commonjs ${request}`);
+        }
+        callback();
+      });
+    }
+    return config;
+  },
   async headers() {
     return [
       {

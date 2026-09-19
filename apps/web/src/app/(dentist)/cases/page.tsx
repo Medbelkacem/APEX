@@ -18,8 +18,8 @@ import { formatDate } from '@/lib/utils/format';
 function CasesView() {
   const params = useSearchParams();
   const [filters, setFilters] = useState<CaseListQuery>({
-    bucket: (params.get('bucket') as CaseListQuery['bucket']) ?? 'all',
-    status: params.get('status') ?? '',
+    bucket: (params?.get('bucket') as CaseListQuery['bucket']) ?? 'all',
+    status: params?.get('status') ?? '',
     caseTypeId: '',
     search: '',
     dateFrom: '',

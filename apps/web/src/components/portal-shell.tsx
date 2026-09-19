@@ -61,7 +61,7 @@ export function PortalShell({
   nav: NavItem[];
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);

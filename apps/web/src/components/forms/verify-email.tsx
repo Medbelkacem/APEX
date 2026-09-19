@@ -14,8 +14,8 @@ type State =
 
 export function VerifyEmail() {
   const params = useSearchParams();
-  const userId = params.get('uid');
-  const token = params.get('token');
+  const userId = params?.get('uid');
+  const token = params?.get('token');
   const [state, setState] = useState<State>({ kind: 'working' });
 
   // React 18 mounts effects twice in development. The verification token is

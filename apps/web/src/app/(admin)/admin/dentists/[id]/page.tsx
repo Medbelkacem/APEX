@@ -35,7 +35,8 @@ const orNull = (value: string) => value.trim() || null;
 type Action = 'enable' | 'disable' | 'reset';
 
 export default function AdminDentistDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  // Never null here — this page only renders once this route's [id] segment matched.
+  const { id } = useParams<{ id: string }>()!;
 
   const detail = useApi(() => dentistsApi.detail(id), [id]);
   // Only the latest slice of history is useful here; the full lists live on their own screens.

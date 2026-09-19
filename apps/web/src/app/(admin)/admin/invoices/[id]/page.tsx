@@ -16,7 +16,8 @@ import { formatDate, formatDateTime, formatMoney } from '@/lib/utils/format';
 import { INVOICE_TONES } from '@/lib/utils/invoice-status';
 
 export default function AdminInvoiceDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  // Never null here — this page only renders once this route's [id] segment matched.
+  const { id } = useParams<{ id: string }>()!;
   const invoice = useApi(() => invoicesApi.detail(id), [id]);
 
   const [busy, setBusy] = useState<string | null>(null);

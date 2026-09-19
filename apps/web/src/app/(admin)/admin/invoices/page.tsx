@@ -25,7 +25,7 @@ function AdminInvoicesView() {
     status: '',
     // Seeded from the URL so "All invoices" links from a dentist's page land
     // pre-filtered to that dentist.
-    dentistId: params.get('dentistId') ?? '',
+    dentistId: params?.get('dentistId') ?? '',
     search: '',
     dateFrom: '',
     dateTo: '',

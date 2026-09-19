@@ -22,7 +22,7 @@ function AdminCasesView() {
     caseTypeId: '',
     // Seeded from the URL so "All cases" links from a dentist's page land
     // pre-filtered to that dentist.
-    dentistId: params.get('dentistId') ?? '',
+    dentistId: params?.get('dentistId') ?? '',
     search: '',
     dateFrom: '',
     dateTo: '',

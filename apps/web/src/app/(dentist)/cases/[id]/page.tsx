@@ -15,7 +15,8 @@ import { casesApi, uploadCaseFiles } from '@/lib/api/cases';
 import { formatBytes, formatDate, formatDateTime } from '@/lib/utils/format';
 
 export default function CaseDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  // Never null here — this page only renders once this route's [id] segment matched.
+  const { id } = useParams<{ id: string }>()!;
 
   const detail = useApi(() => casesApi.detail(id), [id]);
   const timeline = useApi(() => casesApi.timeline(id), [id]);

@@ -31,9 +31,9 @@ type FormValues = z.infer<typeof schema>;
 export function ResetPasswordForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const userId = params.get('uid') ?? '';
-  const token = params.get('token') ?? '';
-  const isSetup = params.get('setup') === '1';
+  const userId = params?.get('uid') ?? '';
+  const token = params?.get('token') ?? '';
+  const isSetup = params?.get('setup') === '1';
 
   const {
     register,
