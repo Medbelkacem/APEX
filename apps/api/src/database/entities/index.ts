@@ -17,6 +17,7 @@ import { ContactMessage, ContactMessageSchema } from './contact-message.entity';
 import { AuditLog, AuditLogSchema } from './audit-log.entity';
 import { PlatformSetting, PlatformSettingSchema } from './platform-setting.entity';
 import { Counter, CounterSchema } from './counter.entity';
+import { RateLimitHit, RateLimitHitSchema } from './rate-limit-hit.entity';
 
 export * from './user.entity';
 export * from './refresh-token.entity';
@@ -35,6 +36,7 @@ export * from './contact-message.entity';
 export * from './audit-log.entity';
 export * from './platform-setting.entity';
 export * from './counter.entity';
+export * from './rate-limit-hit.entity';
 
 /**
  * Every model definition, consumed by the seeder/CLI connection. Modules
@@ -58,4 +60,5 @@ export const modelDefinitions: ModelDefinition[] = [
   { name: AuditLog.name, schema: AuditLogSchema },
   { name: PlatformSetting.name, schema: PlatformSettingSchema },
   { name: Counter.name, schema: CounterSchema },
+  { name: RateLimitHit.name, schema: RateLimitHitSchema },
 ];

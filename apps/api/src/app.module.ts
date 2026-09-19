@@ -3,16 +3,19 @@ import { resolve } from 'path';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MongooseModule, MongooseModuleFactoryOptions } from '@nestjs/mongoose';
+import { getModelToken, MongooseModule, MongooseModuleFactoryOptions } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { ZodValidationPipe } from 'nestjs-zod';
+import { Model } from 'mongoose';
 
 import { configNamespaces, validateEnv } from './config';
 import { AppConfig } from './config/app.config';
 import { AuthConfig } from './config/auth.config';
+import { MongoThrottlerStorage } from './common/throttler/mongo-throttler.storage';
+import { RateLimitHit, RateLimitHitSchema } from './database/entities';
 
 import { QueueModule } from './queue/queue.module';
 import { MailModule } from './mail/mail.module';
@@ -87,8 +90,17 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
       },
     }),
 
-    // Baseline rate limiting (per-route overrides via @Throttle).
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    // Baseline rate limiting (per-route overrides via @Throttle). Storage is
+    // Mongo-backed (see MongoThrottlerStorage) rather than the in-memory
+    // default, which does not share state across serverless instances.
+    ThrottlerModule.forRootAsync({
+      imports: [MongooseModule.forFeature([{ name: RateLimitHit.name, schema: RateLimitHitSchema }])],
+      inject: [getModelToken(RateLimitHit.name)],
+      useFactory: (model: Model<RateLimitHit>) => ({
+        throttlers: [{ ttl: 60_000, limit: 120 }],
+        storage: new MongoThrottlerStorage(model),
+      }),
+    }),
 
     ScheduleModule.forRoot(),
 
